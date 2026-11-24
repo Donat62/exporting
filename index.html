@@ -1,23 +1,23 @@
 <!DOCTYPE html>
-<html lang="hu" class="dark">
+<html lang="hu">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>SnapBridge – Azonnali fotó- és videómegosztás</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <style>
-body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;color:#f1f5f9}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);background:#090d16}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#090d16;color:#f1f5f9;min-height:100vh}
 .sel{border-color:#6366f1!important;box-shadow:0 0 0 2px rgba(99,102,241,.45)}
 .drag{border-color:#6366f1!important;background:rgba(99,102,241,.12)!important}
 @keyframes up{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
 .toast{animation:up .25s ease}
 </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-950">
+<body class="flex flex-col">
 
 <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-30">
  <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-2">
@@ -31,11 +31,8 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
    <button onclick="openQr()" class="p-1.5 text-slate-400 hover:text-white" title="QR-kód"><i data-ico="qr"></i></button>
    <button onclick="leaveRoom()" class="p-1.5 text-rose-300 hover:text-rose-200" title="Kilépés"><i data-ico="out"></i></button>
   </div>
-  <div class="flex items-center gap-2">
-   <button onclick="openModal('help-modal')" class="p-2 text-slate-300 hover:text-white bg-slate-800 border border-slate-700 rounded-xl" title="Firebase súgó"><i data-ico="help"></i></button>
-   <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs">
-    <span id="dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span><span id="stxt" class="hidden sm:inline">Csatlakozás…</span>
-   </div>
+  <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs">
+   <span id="dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span><span id="stxt" class="hidden sm:inline">Csatlakozás…</span>
   </div>
  </div>
 </header>
@@ -43,10 +40,7 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
 <div id="banner" class="hidden bg-rose-950/90 border-b border-rose-500/40 px-4 py-3 text-sm text-rose-100">
  <div class="max-w-6xl mx-auto flex items-center justify-between gap-3">
   <span id="banner-msg"></span>
-  <span class="flex gap-2 shrink-0">
-   <button onclick="openModal('help-modal')" class="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold rounded-lg">Súgó</button>
-   <button onclick="$('banner').classList.add('hidden')" class="p-1.5 text-rose-300 hover:text-white"><i data-ico="x"></i></button>
-  </span>
+  <button onclick="$('banner').classList.add('hidden')" class="p-1.5 text-rose-300 hover:text-white shrink-0"><i data-ico="x"></i></button>
  </div>
 </div>
 
@@ -55,7 +49,7 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
 <section id="lobby" class="max-w-3xl mx-auto">
  <div class="text-center mb-10">
   <h1 class="text-3xl sm:text-5xl font-extrabold text-white mb-4 leading-tight">Küldj fotókat telefonról laptopra <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">másodpercek alatt</span></h1>
-  <p class="text-slate-400 max-w-xl mx-auto">Hozz létre egy szobát, olvasd be a QR-kódot a telefonoddal, és töltsd fel a fájlokat. Regisztráció nélkül.</p>
+  <p class="text-slate-400 max-w-xl mx-auto">Hozz létre egy szobát, olvasd be a QR-kódot a telefonoddal, és töltsd fel a fájlokat.</p>
  </div>
  <div class="grid md:grid-cols-2 gap-6">
   <div class="bg-slate-900 rounded-3xl p-7 border border-slate-800 flex flex-col justify-between gap-6">
@@ -88,7 +82,7 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
   <input type="file" id="f-in" accept="image/*,video/*" multiple class="hidden">
   <input type="file" id="f-cam" accept="image/*,video/*" capture="environment" class="hidden">
   <h2 class="text-lg sm:text-xl font-bold text-white mb-1">Fotó és videó feltöltése</h2>
-  <p class="text-sm text-slate-400 mb-5">Válassz a galériából, készíts új felvételt, vagy húzd ide a fájlokat.</p>
+  <p class="text-sm text-slate-400 mb-5">Válassz a galériából, készíts új felvételt, vagy húzd ide a fájlokat (fájlonként max. 20 MB).</p>
   <div class="flex flex-col sm:flex-row gap-3 justify-center">
    <button onclick="$('f-in').click()" class="py-3.5 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl">Fájlok kiválasztása</button>
    <button onclick="$('f-cam').click()" class="py-3.5 px-6 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold rounded-xl">Kamera indítása</button>
@@ -116,7 +110,7 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
 </section>
 </main>
 
-<div id="selbar" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-xl bg-slate-900/95 backdrop-blur border border-indigo-500/40 rounded-2xl px-4 py-3 shadow-2xl items-center justify-between gap-3 toast">
+<div id="selbar" style="bottom:calc(1.25rem + env(safe-area-inset-bottom,0px))" class="hidden fixed left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-xl bg-slate-900/95 backdrop-blur border border-indigo-500/40 rounded-2xl px-4 py-3 shadow-2xl items-center justify-between gap-3 toast">
  <span class="text-sm font-semibold text-white"><b id="selcount">0</b> kijelölt elem</span>
  <div class="flex gap-2">
   <button onclick="downloadList(selected())" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl">Letöltés</button>
@@ -127,20 +121,22 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
 
 <footer class="border-t border-slate-800 bg-slate-900/50 py-5 text-xs text-slate-500 text-center">SnapBridge • Valós idejű fotó- és videóátvitel eszközök között</footer>
 
-<!-- QR -->
 <div id="qr-modal" onclick="if(event.target===this)closeModal('qr-modal')" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 items-center justify-center p-4">
  <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-7 text-center">
   <h3 class="text-xl font-bold text-white mb-1">Csatlakozás telefonnal</h3>
   <p class="text-sm text-slate-400 mb-4">Olvasd be a kamerával:</p>
   <div class="bg-white p-4 rounded-2xl inline-block mb-4"><canvas id="qr-canvas" width="210" height="210"></canvas></div>
-  <div id="qr-code" class="font-mono text-xl font-extrabold tracking-widest text-indigo-400 mb-5"></div>
-  <button onclick="closeModal('qr-modal')" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl">Bezárás</button>
+  <div id="qr-code" class="font-mono text-xl font-extrabold tracking-widest text-indigo-400 mb-2"></div>
+  <p class="text-xs text-slate-400 mb-4">A telefonon is be kell jelentkezni a claude.ai-ba, és az oldalhoz hozzáférés kell.</p>
+  <div class="flex gap-2">
+   <button onclick="copyText(location.href)" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl">Link másolása</button>
+   <button onclick="closeModal('qr-modal')" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl">Bezárás</button>
+  </div>
  </div>
 </div>
 
-<!-- Lightbox -->
 <div id="lb" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur z-50 flex-col">
- <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 text-white">
+ <div style="padding-top:env(safe-area-inset-top,0px)" class="flex items-center justify-between px-4 py-3 border-b border-slate-800 text-white">
   <div class="min-w-0 pr-3"><h4 id="lb-name" class="font-semibold truncate"></h4><p id="lb-meta" class="text-xs text-slate-400"></p></div>
   <div class="flex gap-2 shrink-0">
    <button onclick="dl(photos[lbi])" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-sm font-semibold rounded-xl">Mentés</button>
@@ -156,7 +152,6 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
  </div>
 </div>
 
-<!-- Törlés megerősítése -->
 <div id="del-modal" onclick="if(event.target===this)closeModal('del-modal')" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] items-center justify-center p-4">
  <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6">
   <h3 class="text-lg font-bold text-white mb-2">Törlés</h3>
@@ -168,85 +163,33 @@ body{font-family:Inter,system-ui,-apple-system,sans-serif;background:#090d16;col
  </div>
 </div>
 
-<!-- Súgó -->
-<div id="help-modal" onclick="if(event.target===this)closeModal('help-modal')" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[60] items-center justify-center p-4">
- <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto text-sm text-slate-300 space-y-4">
-  <h3 class="text-lg font-bold text-white">Firebase beállítási segédlet</h3>
-  <p>A képek a <b>Cloud Firestore</b>-ban, a videók a <b>Firebase Storage</b>-ban tárolódnak (a Storage új projekteknél Blaze csomagot igényel). Illeszd be a szabályokat a Firebase Console megfelelő részén, majd kattints a Publish gombra.</p>
-  <div><div class="flex justify-between mb-1"><b class="text-slate-200 text-xs uppercase">Firestore → Rules</b><button onclick="copyText($('r-fs').textContent)" class="text-xs text-indigo-400 font-semibold">Másolás</button></div>
-   <pre id="r-fs" class="bg-slate-950 border border-slate-800 text-emerald-300 p-3 rounded-xl text-xs overflow-x-auto"></pre></div>
-  <div><div class="flex justify-between mb-1"><b class="text-slate-200 text-xs uppercase">Storage → Rules (videókhoz)</b><button onclick="copyText($('r-st').textContent)" class="text-xs text-indigo-400 font-semibold">Másolás</button></div>
-   <pre id="r-st" class="bg-slate-950 border border-slate-800 text-emerald-300 p-3 rounded-xl text-xs overflow-x-auto"></pre></div>
-  <p class="text-xs text-slate-400">Fontos: a szobakód ismerete elég a belépéshez, ezért a szoba tartalma nem titkos. Videó-letöltéshez a Storage bucketen CORS beállítás is kellhet; ennek hiányában a videó új lapon nyílik meg.</p>
-  <button onclick="closeModal('help-modal')" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl">Rendben</button>
- </div>
-</div>
-
-<div id="toasts" class="fixed bottom-24 right-5 left-5 sm:left-auto z-[70] flex flex-col gap-2 pointer-events-none"></div>
+<div id="toasts" style="bottom:calc(6rem + env(safe-area-inset-bottom,0px))" class="fixed right-5 left-5 sm:left-auto z-[70] flex flex-col gap-2 pointer-events-none"></div>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyAQ71cDj_FLSnKHnAJ7zU56JzqjrWvWvTA",
-  authDomain: "exporting-89727.firebaseapp.com",
-  projectId: "exporting-89727",
-  storageBucket: "exporting-89727.firebasestorage.app",
-  messagingSenderId: "213536664632",
-  appId: "1:213536664632:web:b35b5f0273af259156cacd"
-};
-const FS_RULES = `rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /rooms/{roomCode} {
-      allow get, create: if true;
-      allow list, update, delete: if false;
-      match /photos/{photoId} {
-        allow read, delete: if true;
-        allow update: if false;
-        allow create: if request.resource.data.keys().hasOnly(['mediaType','mimeType','fileName','imageData','posterUrl','url','path','width','height','duration','createdAt','uploadedBy'])
-                      && request.resource.data.imageData is string
-                      && request.resource.data.imageData.size() < 900000;
-      }
-    }
-  }
-}`;
-const ST_RULES = `rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /rooms/{room}/{file} {
-      allow read, delete: if true;
-      allow create: if request.resource.size < 200 * 1024 * 1024
-                    && request.resource.contentType.matches('video/.*');
-    }
-  }
-}`;
+const $ = id => document.getElementById(id);
 const ICONS = {
   camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
   copy:'<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   qr:'<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M12 7v3a2 2 0 0 1-2 2H7M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1"/>',
   out:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/>',
-  help:'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
   trash:'<path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
   down:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
   check:'<path d="M20 6 9 17l-5-5"/>', play:'<path d="M5 3l14 9-14 9z" fill="currentColor"/>'
 };
-const $ = id => document.getElementById(id);
 const ico = (n, c) => '<svg class="' + (c || 'w-4 h-4') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICONS[n] + '</svg>';
 document.querySelectorAll('i[data-ico]').forEach(e => { e.outerHTML = ico(e.dataset.ico, e.dataset.c); });
-$('r-fs').textContent = FS_RULES; $('r-st').textContent = ST_RULES;
 
-let db = null, storage = null, room = null, unsub = null, photos = [], lbi = -1, pendingDel = [];
+let db = null, assets = null, canWrite = true, room = null, unsub = null, photos = [], lbi = -1, pendingDel = [];
 const sel = new Set();
-const uid = 'u_' + Math.random().toString(36).slice(2, 10);
 
 /* ---------- Segédek ---------- */
 function toast(msg, type) {
   const t = document.createElement('div');
   const col = {success:'bg-emerald-950 text-emerald-100 border-emerald-700', error:'bg-rose-950 text-rose-100 border-rose-700'}[type] || 'bg-slate-900 text-slate-100 border-slate-700';
   t.className = 'toast pointer-events-auto px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium ' + col;
-  t.textContent = msg; $('toasts').appendChild(t);
-  setTimeout(() => t.remove(), 4000);
+  t.textContent = msg; $('toasts').appendChild(t); setTimeout(() => t.remove(), 4500);
 }
 function setStatus(state, text, detail) {
   $('dot').className = 'w-2.5 h-2.5 rounded-full ' + ({ok:'bg-emerald-400', warn:'bg-amber-400', err:'bg-rose-500'}[state]);
@@ -258,89 +201,70 @@ function openModal(id) { const m = $(id); m.classList.remove('hidden'); m.classL
 function closeModal(id) { const m = $(id); m.classList.add('hidden'); m.classList.remove('flex'); }
 function copyText(txt) {
   const done = () => toast('Vágólapra másolva', 'success');
-  if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(txt).then(done, fallback); } else fallback();
-  function fallback() {
+  const fallback = () => {
     const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
     try { document.execCommand('copy'); done(); } catch (e) { toast('Nem sikerült a másolás', 'error'); }
     ta.remove();
-  }
+  };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
 }
-function copyCode() { if (room) copyText(room); }
-function fmtDur(s) { if (!s) return ''; return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); }
-function userErr(m) { const e = new Error(m); e.userMsg = m; return e; }
+const copyCode = () => { if (room) copyText(room); };
+const fmtDur = s => s ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '';
+const userErr = m => { const e = new Error(m); e.userMsg = m; return e; };
+const safeData = v => /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(String(v || '')) ? v : '';
 
-/* A Firestore-ból érkező adat nem megbízható: szűrés (XSS ellen) */
-const safeData = v => /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+\/=]+$/.test(String(v || '')) ? v : '';
-const safeUrl = v => /^https:\/\/(firebasestorage|storage)\.googleapis\.com\//.test(String(v || '')) ? v : '';
 function norm(id, d) {
-  const video = d.mediaType === 'video';
-  const src = video ? safeUrl(d.url) : safeData(d.imageData);
-  if (!src) return null;
-  return { id, video, src, poster: safeData(d.posterUrl), name: String(d.fileName || 'fajl').slice(0, 120),
-           w: +d.width || 0, h: +d.height || 0, dur: +d.duration || 0, t: +d.createdAt || 0,
-           path: typeof d.path === 'string' ? d.path : '' };
+  if (!d || !/^[0-9a-f]{32}$/.test(String(d.assetId || ''))) return null;
+  return { id, video: d.kind === 'video', src: '/_blob/' + d.assetId, assetId: d.assetId, poster: safeData(d.poster),
+           name: String(d.name || 'fajl').slice(0, 120), w: +d.w || 0, h: +d.h || 0, dur: +d.dur || 0, t: +d.t || 0 };
 }
 
-/* ---------- Firebase ---------- */
-let ready = false;
-try {
-  firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
-  db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
-  ready = true;
-  try { storage = firebase.storage(); } catch (e) { storage = null; }
-  setStatus('ok', 'Firebase csatlakozva');
-} catch (e) {
-  console.error(e);
-  setStatus('warn', 'Helyi mód', 'A Firebase nem töltődött be, ezért csak ezen az eszközön működik (és csak képekkel).');
-}
-function fsError(err) {
-  console.error(err);
-  const c = (err && err.code) || '';
-  if (c === 'permission-denied') setStatus('err', 'Szabály tiltja', 'Jogosultsági hiba: a Firestore-szabályok tiltják az írást vagy olvasást. Nyisd meg a súgót.');
-  else if (c === 'not-found' || c === 'failed-precondition') setStatus('err', 'Nincs adatbázis', 'A Cloud Firestore adatbázis még nincs létrehozva a Firebase Console-ban.');
-  else setStatus('warn', 'Szinkronhiba', 'Firestore hiba (' + (c || 'kapcsolat') + '): ' + ((err && err.message) || ''));
-}
+/* ---------- Képességek (db + assets) ---------- */
+const ready = (async () => {
+  try {
+    if (!window.claude || !claude.use) throw 0;
+    db = await claude.use('db'); assets = await claude.use('assets');
+    const user = await claude.use('user');
+    if (user && user.can) { const w = await user.can('data.write'); if (w === false) canWrite = false; }
+  } catch (e) { db = null; }
+  if (!db) setStatus('err', 'Nincs kapcsolat', 'A közös tárolás nem érhető el. Jelentkezz be a claude.ai-ba, és nyisd meg az oldalt a megosztási linkről.');
+  else if (!canWrite) setStatus('warn', 'Csak olvasás', 'Csak megtekintési jogod van, feltölteni nem tudsz. Kérj Contributor hozzáférést.');
+  else if (!assets) setStatus('warn', 'Nincs fájltár', 'A fájlfeltöltés nem érhető el ennél a hozzáférési szintnél.');
+  else setStatus('ok', 'Csatlakozva');
+})();
 
 /* ---------- Szobák ---------- */
 function genCode() {
-  const ch = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; const a = new Uint32Array(6); crypto.getRandomValues(a);
+  const ch = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', a = new Uint32Array(6); crypto.getRandomValues(a);
   return Array.from(a, n => ch[n % ch.length]).join('');
 }
-function createRoom() {
-  const code = genCode(); enterRoom(code); toast('Szoba létrehozva: ' + code, 'success');
-  if (ready) db.collection('rooms').doc(code).set({ code, createdAt: Date.now(), createdBy: uid }).catch(fsError);
+const cleanCode = v => String(v || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+function createRoom() { const c = genCode(); enterRoom(c); toast('Szoba létrehozva: ' + c, 'success'); }
+function joinRoom() {
+  const c = cleanCode($('code-in').value);
+  if (c.length < 4) { toast('Írj be érvényes szobakódot (legalább 4 karakter)!', 'error'); $('code-in').focus(); return; }
+  enterRoom(c); toast('Belépve: ' + c, 'success');
 }
-function joinRoom(explicit) {
-  const code = String(explicit || $('code-in').value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  if (code.length < 4) { toast('Írj be érvényes szobakódot (legalább 4 karakter)!', 'error'); $('code-in').focus(); return; }
-  enterRoom(code); toast('Belépve: ' + code, 'success');
-  if (ready) {
-    const ref = db.collection('rooms').doc(code);
-    ref.get().then(s => s.exists ? null : ref.set({ code, createdAt: Date.now(), createdBy: uid })).catch(fsError);
-  }
-}
-function enterRoom(code) {
-  leaveRoom(true);
-  room = code; sel.clear(); photos = [];
-  try { const u = new URL(location.href); u.searchParams.set('room', code); history.replaceState({}, '', u); } catch (e) {}
+async function enterRoom(code) {
+  stopListen(); room = code; sel.clear(); photos = [];
+  if (location.hash !== '#' + code) location.hash = code;
   ['hdr-code', 'big-code', 'qr-code'].forEach(id => $(id).textContent = code);
   $('lobby').classList.add('hidden'); $('room').classList.remove('hidden');
   $('hdr-room').classList.remove('hidden'); $('hdr-room').classList.add('flex');
-  render();
-  if (ready) {
-    unsub = db.collection('rooms').doc(code).collection('photos').onSnapshot(snap => {
-      setStatus('ok', 'Firebase csatlakozva');
-      const list = []; snap.forEach(d => { const p = norm(d.id, d.data()); if (p) list.push(p); });
+  render(); await ready;
+  if (!db || room !== code) return;
+  try {
+    unsub = db.collection('rooms/' + code + '/photos').onSnapshot(snap => {
+      const list = [];
+      snap.docs.forEach(d => { const p = norm(d.id, d.data()); if (p) list.push(p); });
       list.sort((a, b) => b.t - a.t); photos = list; render();
-    }, fsError);
-  }
+    }, e => { console.error(e); setStatus('warn', 'Szinkronhiba', 'Az olvasás nem sikerült: ' + (e && e.code || 'ismeretlen hiba')); });
+  } catch (e) { console.error(e); }
 }
-function leaveRoom(silent) {
-  if (unsub) { unsub(); unsub = null; }
-  closeLb(); room = null; photos = []; sel.clear(); $('grid').replaceChildren();
-  if (silent) return;
-  try { const u = new URL(location.href); u.searchParams.delete('room'); history.replaceState({}, '', u); } catch (e) {}
+function stopListen() { if (unsub) { try { unsub(); } catch (e) {} unsub = null; } }
+function leaveRoom() {
+  stopListen(); closeLb(); room = null; photos = []; sel.clear(); $('grid').replaceChildren();
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   $('code-in').value = '';
   $('room').classList.add('hidden'); $('lobby').classList.remove('hidden');
   $('hdr-room').classList.add('hidden'); $('hdr-room').classList.remove('flex');
@@ -348,9 +272,8 @@ function leaveRoom(silent) {
 }
 function openQr() {
   if (!room) return;
-  const url = location.href.split('#')[0].split('?')[0] + '?room=' + room;
   const cv = $('qr-canvas');
-  if (typeof QRious !== 'undefined') new QRious({ element: cv, value: url, size: 210, level: 'M', foreground: '#0f172a', background: '#ffffff' });
+  if (typeof QRious !== 'undefined') new QRious({ element: cv, value: location.href, size: 210, level: 'M', foreground: '#0f172a', background: '#ffffff' });
   else { const c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, 210, 210); c.fillStyle = '#0f172a'; c.font = 'bold 28px monospace'; c.textAlign = 'center'; c.fillText(room, 105, 110); }
   openModal('qr-modal');
 }
@@ -363,47 +286,40 @@ function render() {
   [...sel].forEach(id => { if (!photos.some(p => p.id === id)) sel.delete(id); });
   $('count').textContent = photos.length;
   $('empty').classList.toggle('hidden', photos.length > 0);
-  $('tools').classList.toggle('hidden', photos.length === 0); $('tools').classList.toggle('flex', photos.length > 0);
+  $('tools').classList.toggle('hidden', !photos.length); $('tools').classList.toggle('flex', photos.length > 0);
   $('selall').textContent = (photos.length && sel.size === photos.length) ? 'Kijelölés törlése' : 'Összes kijelölése';
-  const bar = $('selbar'); bar.classList.toggle('hidden', sel.size === 0); bar.classList.toggle('flex', sel.size > 0);
+  $('selbar').classList.toggle('hidden', !sel.size); $('selbar').classList.toggle('flex', sel.size > 0);
   $('selcount').textContent = sel.size;
 
   const frag = document.createDocumentFragment();
   photos.forEach((p, i) => {
-    const on = sel.has(p.id);
-    const card = document.createElement('div');
+    const on = sel.has(p.id), card = document.createElement('div');
     card.className = 'group bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-lg flex flex-col ' + (on ? 'sel' : '');
-
     const media = document.createElement('div');
     media.className = 'relative aspect-[4/3] bg-slate-950 overflow-hidden cursor-pointer';
     const thumb = p.video ? p.poster : p.src;
     if (thumb) { const im = document.createElement('img'); im.src = thumb; im.alt = p.name; im.loading = 'lazy'; im.className = 'w-full h-full object-cover'; media.appendChild(im); }
     if (p.video) { const pl = document.createElement('span'); pl.className = 'absolute inset-0 flex items-center justify-center bg-black/25 pointer-events-none'; pl.innerHTML = '<span class="w-11 h-11 rounded-full bg-indigo-600/90 text-white flex items-center justify-center">' + ico('play', 'w-5 h-5') + '</span>'; media.appendChild(pl); }
     media.addEventListener('click', e => { (e.ctrlKey || e.metaKey || e.shiftKey) ? toggleSel(p.id) : openLb(i); });
-
     const cb = document.createElement('button');
     cb.className = 'absolute top-2.5 left-2.5 z-10 w-7 h-7 rounded-lg flex items-center justify-center border text-white ' + (on ? 'bg-indigo-600 border-indigo-400' : 'bg-slate-950/80 border-slate-500');
     cb.title = 'Kijelölés'; cb.innerHTML = on ? ico('check') : '';
     cb.addEventListener('click', e => { e.stopPropagation(); toggleSel(p.id); });
-    media.appendChild(cb);
-
     const del = document.createElement('button');
     del.className = 'absolute top-2.5 right-2.5 z-10 p-1.5 bg-slate-950/80 hover:bg-rose-600 text-slate-200 rounded-lg sm:opacity-0 group-hover:opacity-100 focus:opacity-100 transition';
     del.title = 'Törlés'; del.innerHTML = ico('trash');
     del.addEventListener('click', e => { e.stopPropagation(); askDelete([p.id]); });
-    media.appendChild(del);
-
+    media.append(cb, del);
     const foot = document.createElement('div'); foot.className = 'p-3.5 flex items-center justify-between gap-2';
     const info = document.createElement('div'); info.className = 'min-w-0';
     const nm = document.createElement('p'); nm.className = 'text-sm font-semibold text-slate-100 truncate'; nm.textContent = p.name; nm.title = p.name;
-    const meta = [p.video ? 'VIDEÓ' : '', fmtDur(p.dur), p.t ? new Date(p.t).toLocaleTimeString('hu-HU', {hour:'2-digit', minute:'2-digit'}) : '', p.w && p.h ? p.w + '×' + p.h : ''].filter(Boolean).join(' • ');
-    const mt = document.createElement('p'); mt.className = 'text-xs text-slate-400 mt-0.5 truncate'; mt.textContent = meta;
+    const mt = document.createElement('p'); mt.className = 'text-xs text-slate-400 mt-0.5 truncate';
+    mt.textContent = [p.video ? 'VIDEÓ' : '', fmtDur(p.dur), p.t ? new Date(p.t).toLocaleTimeString('hu-HU', {hour:'2-digit', minute:'2-digit'}) : '', p.w && p.h ? p.w + '×' + p.h : ''].filter(Boolean).join(' • ');
     info.append(nm, mt);
-    const db_ = document.createElement('button');
-    db_.className = 'shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/25 font-semibold text-xs rounded-xl transition';
-    db_.innerHTML = ico('down') + '<span>Mentés</span>'; db_.addEventListener('click', () => dl(p));
-    foot.append(info, db_);
-    card.append(media, foot); frag.appendChild(card);
+    const b = document.createElement('button');
+    b.className = 'shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/25 font-semibold text-xs rounded-xl transition';
+    b.innerHTML = ico('down') + '<span>Mentés</span>'; b.addEventListener('click', () => dl(p));
+    foot.append(info, b); card.append(media, foot); frag.appendChild(card);
   });
   $('grid').replaceChildren(frag);
 }
@@ -411,33 +327,30 @@ function render() {
 /* ---------- Letöltés ---------- */
 async function dl(p) {
   if (!p) return;
-  const a = document.createElement('a'); a.download = p.name; let blobUrl = null;
-  if (p.src.startsWith('data:')) a.href = p.src;
-  else {
-    try { const r = await fetch(p.src); if (!r.ok) throw 0; blobUrl = URL.createObjectURL(await r.blob()); a.href = blobUrl; }
-    catch (e) { window.open(p.src, '_blank', 'noopener'); return; }
-  }
-  document.body.appendChild(a); a.click(); a.remove();
-  if (blobUrl) setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+  try {
+    const r = await fetch(p.src); if (!r.ok) throw 0;
+    const url = URL.createObjectURL(await r.blob()), a = document.createElement('a');
+    a.href = url; a.download = p.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
+  } catch (e) { window.open(p.src, '_blank', 'noopener'); }
 }
 async function downloadList(list) {
   if (!list.length) return;
   toast(list.length + ' fájl letöltése…', 'success');
-  for (const p of list) { await dl(p); await new Promise(r => setTimeout(r, 350)); }
+  for (const p of list) { await dl(p); await new Promise(r => setTimeout(r, 400)); }
 }
 
 /* ---------- Lightbox ---------- */
 function openLb(i) {
   if (i < 0 || i >= photos.length) return;
-  lbi = i; const p = photos[i], im = $('lb-img'), vd = $('lb-vid');
-  vd.pause();
+  lbi = i; const p = photos[i], im = $('lb-img'), vd = $('lb-vid'); vd.pause();
   if (p.video) { im.classList.add('hidden'); im.removeAttribute('src'); vd.classList.remove('hidden'); vd.src = p.src; vd.play().catch(() => {}); }
   else { vd.classList.add('hidden'); vd.removeAttribute('src'); vd.load(); im.classList.remove('hidden'); im.src = p.src; }
   $('lb-name').textContent = p.name;
   $('lb-meta').textContent = (i + 1) + ' / ' + photos.length + (p.t ? ' • ' + new Date(p.t).toLocaleString('hu-HU') : '') + (p.dur ? ' • ' + fmtDur(p.dur) : '') + (p.w ? ' • ' + p.w + '×' + p.h : '');
   $('lb').classList.remove('hidden'); $('lb').classList.add('flex');
 }
-function lbStep(d) { if (photos.length) openLb((lbi + d + photos.length) % photos.length); }
+const lbStep = d => { if (photos.length) openLb((lbi + d + photos.length) % photos.length); };
 function closeLb() {
   const vd = $('lb-vid'); vd.pause(); vd.removeAttribute('src'); vd.load(); $('lb-img').removeAttribute('src');
   lbi = -1; $('lb').classList.add('hidden'); $('lb').classList.remove('flex');
@@ -452,89 +365,81 @@ function askDelete(ids) {
 }
 async function doDelete() {
   const ids = pendingDel; pendingDel = []; closeModal('del-modal');
-  if (!ids.length || !room) return;
-  const target = room, items = photos.filter(p => ids.includes(p.id));
+  if (!ids.length || !room || !db) return;
+  const target = room, items = photos.filter(p => ids.includes(p.id)); let n = 0;
   if (lbi >= 0) closeLb();
-  if (!ready) { photos = photos.filter(p => !ids.includes(p.id)); render(); }
-  else {
-    for (const p of items) {
-      try {
-        await db.collection('rooms').doc(target).collection('photos').doc(p.id).delete();
-        if (p.path && storage && p.path.startsWith('rooms/' + target + '/')) storage.ref(p.path).delete().catch(() => {});
-      } catch (e) { fsError(e); }
-    }
+  for (const p of items) {
+    try {
+      await db.collection('rooms/' + target + '/photos').doc(p.id).delete(); n++;
+      if (assets) assets.delete(p.assetId).catch(() => {});
+    } catch (e) { console.error(e); toast('Törlés nem sikerült: ' + p.name, 'error'); }
   }
-  toast(items.length + ' fájl törölve.', 'info');
+  if (n) toast(n + ' fájl törölve.', 'info');
 }
 
 /* ---------- Feltöltés ---------- */
-const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(userErr('A kép nem olvasható')); i.src = src; });
+const MAX = 20 * 1024 * 1024 - 1024;
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(userErr('A képformátum nem olvasható (pl. HEIC)')); i.src = src; });
+const toBlob = (cv, q) => new Promise(res => cv.toBlob(res, 'image/jpeg', q));
 async function compress(file) {
   const url = URL.createObjectURL(file);
   try {
-    const img = await loadImg(url); const W = img.naturalWidth, H = img.naturalHeight;
-    for (const maxD of [1600, 1280, 1000, 760]) {
+    const img = await loadImg(url), W = img.naturalWidth, H = img.naturalHeight;
+    for (const maxD of [2560, 1600, 1000]) {
       const k = Math.min(1, maxD / Math.max(W, H)), w = Math.round(W * k), h = Math.round(H * k);
       const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
       const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
-      for (const q of [0.86, 0.72, 0.58]) {
-        const d = cv.toDataURL('image/jpeg', q);
-        if (d.length < 880000) return { url: d, w, h };
-      }
+      const blob = await toBlob(cv, 0.88);
+      if (blob && blob.size < MAX) return { blob, w, h };
     }
-    throw userErr('A kép túl nagy a tömörítés után is');
+    throw userErr('A kép túl nagy');
   } finally { URL.revokeObjectURL(url); }
 }
 function videoMeta(file) {
   return new Promise(resolve => {
     const url = URL.createObjectURL(file), v = document.createElement('video');
-    v.preload = 'metadata'; v.muted = true; v.playsInline = true;
-    let done = false;
+    v.preload = 'metadata'; v.muted = true; v.playsInline = true; let done = false, tm = 0;
     const finish = poster => { if (done) return; done = true; clearTimeout(tm); const r = { poster: poster || '', dur: isFinite(v.duration) ? Math.round(v.duration) : 0, w: v.videoWidth || 0, h: v.videoHeight || 0 }; URL.revokeObjectURL(url); resolve(r); };
-    const tm = setTimeout(() => finish(''), 4000);
+    tm = setTimeout(() => finish(''), 4000);
     v.onloadedmetadata = () => { try { v.currentTime = Math.min(0.3, (v.duration || 1) * 0.1); } catch (e) { finish(''); } };
     v.onseeked = () => {
       try {
-        const k = Math.min(1, 480 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement('canvas');
+        const k = Math.min(1, 400 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement('canvas');
         cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
         cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height);
-        const d = cv.toDataURL('image/jpeg', 0.7); finish(d.length < 120000 ? d : '');
+        const d = cv.toDataURL('image/jpeg', 0.7); finish(d.length < 100000 ? d : '');
       } catch (e) { finish(''); }
     };
-    v.onerror = () => finish('');
-    v.src = url;
+    v.onerror = () => finish(''); v.src = url;
   });
 }
-function setBusy(t, s) { if (t != null) $('busy-t').textContent = t; if (s != null) $('busy-s').textContent = s; }
+const setBusy = (t, s) => { if (t != null) $('busy-t').textContent = t; if (s != null) $('busy-s').textContent = s; };
 
 async function uploadOne(f, target, idx) {
+  if (f.size > 200 * 1024 * 1024) throw userErr('Túl nagy fájl');
   const stem = (f.name.replace(/\.[^/.]+$/, '') || 'fajl').slice(0, 80);
-  const doc = { mediaType: 'image', mimeType: 'image/jpeg', fileName: '', imageData: '', posterUrl: '', url: '', path: '', width: 0, height: 0, duration: 0, createdAt: Date.now() + idx, uploadedBy: uid };
+  const doc = { kind: 'image', name: '', assetId: '', poster: '', w: 0, h: 0, dur: 0, t: Date.now() + idx };
+  let blob;
   if (f.type.startsWith('image/')) {
-    const c = await compress(f);
-    Object.assign(doc, { fileName: stem + '.jpg', imageData: c.url, width: c.w, height: c.h });
+    const c = await compress(f); blob = c.blob; Object.assign(doc, { name: stem + '.jpg', w: c.w, h: c.h });
   } else {
-    if (!ready || !storage) throw userErr('Videóhoz Firebase Storage szükséges (lásd Súgó)');
-    const m = await videoMeta(f);
+    if (f.size > MAX) throw userErr('A videó nagyobb 20 MB-nál');
+    const m = await videoMeta(f); blob = f;
     const ext = (f.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4';
-    const path = 'rooms/' + target + '/' + Date.now() + '_' + idx + '.' + ext;
-    const ref = storage.ref(path);
-    try {
-      const task = ref.put(f, { contentType: f.type || 'video/mp4' });
-      await new Promise((res, rej) => task.on('state_changed', s => setBusy(null, f.name + ' – ' + Math.round(100 * s.bytesTransferred / s.totalBytes) + '%'), rej, res));
-      doc.url = await ref.getDownloadURL();
-    } catch (e) {
-      if (e && e.code && e.code.startsWith('storage/')) throw userErr(e.code === 'storage/unauthorized' ? 'A Storage-szabály tiltja a feltöltést (lásd Súgó)' : 'Storage hiba: ' + e.code);
-      throw e;
-    }
-    Object.assign(doc, { mediaType: 'video', mimeType: f.type || 'video/mp4', fileName: stem + '.' + ext, path, posterUrl: m.poster, width: m.w, height: m.h, duration: m.dur });
+    Object.assign(doc, { kind: 'video', name: stem + '.' + ext, poster: m.poster, w: m.w, h: m.h, dur: m.dur });
   }
-  if (ready) await db.collection('rooms').doc(target).collection('photos').add(doc);
-  else if (room === target) { const p = norm('local_' + doc.createdAt + '_' + idx, doc); if (p) { photos.unshift(p); render(); } }
+  let up;
+  try { up = await assets.upload(blob); }
+  catch (e) { throw userErr(e && e.code === 'quota_exceeded' ? 'Betelt a tárhely' : 'Fájlfeltöltési hiba' + (e && e.code ? ' (' + e.code + ')' : '')); }
+  doc.assetId = up.id;
+  try { await db.collection('rooms/' + target + '/photos').add(doc); }
+  catch (e) { assets.delete(up.id).catch(() => {}); throw userErr('Mentési hiba' + (e && e.code ? ' (' + e.code + ')' : '')); }
 }
 
 async function handleFiles(list) {
   if (!room || !list || !list.length) return;
+  await ready;
+  if (!db || !assets || !canWrite) { toast('Feltöltéshez Contributor hozzáférés és bejelentkezés kell.', 'error'); return; }
   const files = Array.from(list).filter(f => /^(image|video)\//.test(f.type));
   if (!files.length) { toast('Csak képet vagy videót válassz ki!', 'error'); return; }
   const target = room; let next = 0, ok = 0;
@@ -544,11 +449,7 @@ async function handleFiles(list) {
       const idx = next++, f = files[idx];
       setBusy('Feltöltés (' + ok + '/' + files.length + ')…', f.name);
       try { await uploadOne(f, target, idx); ok++; }
-      catch (e) {
-        console.error(e);
-        if (e && e.code && !e.userMsg) fsError(e);
-        toast(f.name + ': ' + (e.userMsg || 'sikertelen feltöltés'), 'error');
-      }
+      catch (e) { console.error(e); toast(f.name + ': ' + (e.userMsg || 'sikertelen feltöltés'), 'error'); }
     }
   };
   await Promise.all([worker(), worker(), worker()]);
@@ -559,26 +460,31 @@ async function handleFiles(list) {
 /* ---------- Események ---------- */
 $('f-in').addEventListener('change', e => handleFiles(e.target.files));
 $('f-cam').addEventListener('change', e => handleFiles(e.target.files));
-$('code-in').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase(); });
+$('code-in').addEventListener('input', e => { e.target.value = cleanCode(e.target.value); });
 $('code-in').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); joinRoom(); } });
 const dz = $('drop');
 ['dragenter', 'dragover'].forEach(n => dz.addEventListener(n, e => { e.preventDefault(); dz.classList.add('drag'); }));
 ['dragleave', 'drop'].forEach(n => dz.addEventListener(n, e => { e.preventDefault(); dz.classList.remove('drag'); }));
 dz.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
 document.addEventListener('keydown', e => {
-  const lbOpen = !$('lb').classList.contains('hidden');
+  const open = !$('lb').classList.contains('hidden');
   if (e.key === 'Escape') {
-    ['qr-modal', 'del-modal', 'help-modal'].forEach(closeModal);
-    if (lbOpen) closeLb(); else if (sel.size) { sel.clear(); render(); }
-  } else if (lbOpen && e.key === 'ArrowLeft') lbStep(-1);
-  else if (lbOpen && e.key === 'ArrowRight') lbStep(1);
+    ['qr-modal', 'del-modal'].forEach(closeModal);
+    if (open) closeLb(); else if (sel.size) { sel.clear(); render(); }
+  } else if (open && e.key === 'ArrowLeft') lbStep(-1);
+  else if (open && e.key === 'ArrowRight') lbStep(1);
 });
-let tx = null; // lapozás ujjmozdulattal a nagyítón
+let tx = null;
 $('lb').addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
 $('lb').addEventListener('touchend', e => { if (tx == null) return; const dx = e.changedTouches[0].clientX - tx; tx = null; if (Math.abs(dx) > 60) lbStep(dx < 0 ? 1 : -1); }, { passive: true });
 
-const rp = new URLSearchParams(location.search).get('room');
-if (rp) { $('code-in').value = rp.toUpperCase(); joinRoom(rp); }
+function routeFromHash() {
+  const c = cleanCode(location.hash.slice(1));
+  if (c.length >= 4 && c !== room) enterRoom(c);
+  else if (!c && room) leaveRoom();
+}
+window.addEventListener('hashchange', routeFromHash);
+routeFromHash();
 </script>
 </body>
 </html>
