@@ -1,407 +1,475 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="hu" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SnapBridge – Azonnali Fotómegosztás Eszközök Között</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                    }
+                }
+            }
+        };
+    </script>
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- QRious könyvtár QR-kód generáláshoz -->
+    <!-- QRious könyvtár QR-kód generáláshoz (beépített fallback rajzolóval is kiegészítve) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <!-- Firebase v10 Compat SDK (klasszikus, nem-moduláris betöltés a maximális kompatibilitásért) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-            color: #0f172a;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #090d16;
+            color: #f1f5f9;
         }
-        /* Egyedi görgetősáv */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #f1f5f9;
+            background: #0f172a;
         }
         ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
+            background: #334155;
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
+            background: #475569;
         }
-        /* Drag & Drop aktív állapot */
         .drag-active {
-            border-color: #4f46e5 !important;
-            background-color: #eef2ff !important;
+            border-color: #6366f1 !important;
+            background-color: rgba(99, 102, 241, 0.12) !important;
             transform: scale(1.01);
         }
-        /* Toast animáció */
         @keyframes slideUp {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
         }
         .toast-enter {
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col selection:bg-indigo-100 selection:text-indigo-900">
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-indigo-500/30 selection:text-indigo-200">
 
     <!-- Felső navigációs sáv -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
             <!-- Logó -->
-            <div class="flex items-center gap-2.5 cursor-pointer" id="logo-btn" title="Vissza a kezdőlapra">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200">
-                    <i data-lucide="camera" class="w-5 h-5"></i>
+            <button type="button" onclick="appLeaveRoom()" class="flex items-center gap-2.5 text-left focus:outline-none group" title="Vissza a főképernyőre">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                        <circle cx="12" cy="13" r="3"/>
+                    </svg>
                 </div>
-                <span class="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
-                    Snap<span class="text-indigo-600">Bridge</span>
+                <span class="font-extrabold text-xl tracking-tight text-white">
+                    Snap<span class="text-indigo-400">Bridge</span>
                 </span>
-            </div>
+            </button>
 
             <!-- Aktív szoba vezérlők a fejlécben (csak szobában látható) -->
-            <div id="header-room-controls" class="hidden flex items-center gap-2 sm:gap-3">
-                <div class="flex items-center bg-slate-100 border border-slate-200 rounded-xl px-3 py-1.5 gap-2">
-                    <span class="text-xs font-medium text-slate-500 hidden sm:inline">Szobakód:</span>
-                    <span id="header-room-code" class="font-mono font-bold text-base sm:text-lg tracking-widest text-indigo-600">-----</span>
-                    <button id="copy-code-btn" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors" title="Szobakód másolása">
-                        <i data-lucide="copy" class="w-4 h-4"></i>
+            <div id="header-room-controls" class="hidden items-center gap-2 sm:gap-3">
+                <div class="flex items-center bg-slate-800/90 border border-slate-700 rounded-xl px-3 py-1.5 gap-2">
+                    <span class="text-xs font-medium text-slate-400 hidden sm:inline">Szoba:</span>
+                    <span id="header-room-code" class="font-mono font-bold text-base sm:text-lg tracking-widest text-indigo-400">-----</span>
+                    <button type="button" onclick="appCopyRoomCode()" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="Szobakód másolása">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                        </svg>
                     </button>
-                    <button id="show-qr-btn" class="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors" title="QR-kód megjelenítése telefonhoz">
-                        <i data-lucide="qr-code" class="w-4 h-4"></i>
+                    <button type="button" onclick="appOpenQrModal()" class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="QR-kód telefonhoz">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/>
+                        </svg>
                     </button>
                 </div>
 
-                <button id="leave-room-btn" class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors">
-                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                <button type="button" onclick="appLeaveRoom()" class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-colors">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                    </svg>
                     <span class="hidden sm:inline">Kilépés</span>
                 </button>
             </div>
 
-            <!-- Kapcsolat státusz jelző -->
+            <!-- Jobb oldal: Firebase súgó + Kapcsolat állapota -->
             <div class="flex items-center gap-2 sm:gap-3">
-                <button id="open-help-btn" class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 rounded-xl transition-colors" title="Firebase beállítási segédlet">
-                    <i data-lucide="help-circle" class="w-4 h-4"></i>
+                <button type="button" onclick="appOpenHelpModal()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition-colors" title="Firebase beállítási segédlet">
+                    <svg class="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
+                    </svg>
                     <span class="hidden md:inline">Firebase súgó</span>
                 </button>
-                <div id="connection-status" class="flex items-center gap-2 text-xs font-medium text-slate-500">
-                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="status-dot"></span>
-                    <span id="status-text" class="hidden sm:inline">Csatlakozás...</span>
+
+                <!-- Kapcsolat állapota jelző -->
+                <div id="connection-badge" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs font-medium text-slate-300" title="Firebase szinkronizáció állapota">
+                    <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+                    <span id="status-text" class="truncate max-w-[140px] sm:max-w-[220px]">Csatlakozás...</span>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Jogosultsági / Firestore Security Rules figyelmeztető sáv (csak hiba esetén jelenik meg) -->
-    <div id="permission-banner" class="hidden bg-amber-50 border-b border-amber-200 px-4 py-3">
-        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm text-amber-900">
+    <!-- Firebase hiba / figyelmeztető sáv (ha a Firestore nincs engedélyezve vagy tiltja a szabály) -->
+    <div id="firebase-alert-banner" class="hidden bg-amber-500/10 border-b border-amber-500/30 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm text-amber-200">
             <div class="flex items-start sm:items-center gap-2.5">
-                <i data-lucide="shield-alert" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5 sm:mt-0"></i>
-                <span>
-                    <strong>Firestore jogosultsági hiba (Permission Denied):</strong> A Firebase adatbázis szabályai jelenleg blokkolják a műveletet.
+                <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+                </svg>
+                <span id="firebase-alert-message">
+                    <strong>Firestore szinkronizációs figyelmeztetés:</strong> A szoba helyileg működik, de a felhő szinkronizációhoz engedélyezd a Firestore szabályokat.
                 </span>
             </div>
-            <button id="banner-open-help-btn" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors shrink-0">
-                Szabályok megtekintése
+            <button type="button" onclick="appOpenHelpModal()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg transition-colors shrink-0">
+                Szabályok megnyitása
             </button>
         </div>
     </div>
 
     <!-- Fő tartalmi terület -->
-    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-10">
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
-        <!-- 1. LOBBY NÉZET (Szoba létrehozása / csatlakozás) -->
-        <section id="lobby-view" class="max-w-2xl mx-auto">
-            <div class="text-center mb-8 sm:mb-10">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold mb-4 border border-indigo-100">
-                    <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-                    <span>Valós idejű szinkronizáció • Regisztráció nélkül</span>
+        <!-- 1. LOBBY NÉZET (Főképernyő) -->
+        <section id="lobby-view" class="max-w-3xl mx-auto">
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-semibold mb-4 border border-indigo-500/20">
+                    <svg class="w-3.5 h-3.5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    <span>Azonnali fotóátvitel • Regisztráció nélkül</span>
                 </div>
-                <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
-                    Küldj fotókat telefonról laptopra másodpercek alatt
+                <h1 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-4 leading-tight">
+                    Küldj fotókat telefonról laptopra <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">másodpercek alatt</span>
                 </h1>
-                <p class="text-slate-600 text-base sm:text-lg max-w-xl mx-auto">
-                    Hozz létre egy szobát, írd be a kódot a másik eszközön (vagy olvasd be a QR-kódot), és a feltöltött képek azonnal megjelennek.
+                <p class="text-slate-400 text-base sm:text-lg max-w-xl mx-auto">
+                    Hozz létre egy szobát egyetlen kattintással, olvasd be a QR-kódot a telefonoddal, és töltsd fel a képeket.
                 </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Új szoba létrehozása kártya -->
-                <div class="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                <div class="bg-slate-900/90 rounded-3xl p-7 sm:p-8 border border-slate-800 hover:border-indigo-500/40 transition-all shadow-xl flex flex-col justify-between">
                     <div>
-                        <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-5">
-                            <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>
+                            </svg>
                         </div>
-                        <h2 class="text-xl font-bold text-slate-900 mb-2">Új szoba indítása</h2>
-                        <p class="text-slate-500 text-sm mb-6 leading-relaxed">
-                            Generálunk egy egyedi 5 karakteres szobakódot és QR-kódot, amivel bármilyen eszközről csatlakozhatsz.
+                        <h2 class="text-xl font-bold text-white mb-2">Új szoba indítása</h2>
+                        <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+                            Azonnal generálunk egy egyedi 5 karakteres szobakódot és QR-kódot, amivel bármilyen eszközről csatlakozhatsz.
                         </p>
                     </div>
-                    <button id="create-room-btn" disabled class="w-full py-3.5 px-5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-sm shadow-indigo-200 transition-all flex items-center justify-center gap-2 active:scale-[0.99]">
-                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    <button type="button" id="create-room-btn" onclick="appCreateNewRoom()" class="w-full py-4 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-base rounded-2xl shadow-lg shadow-indigo-600/25 transition-all flex items-center justify-center gap-2.5 active:scale-[0.98] cursor-pointer">
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                        </svg>
                         <span>Új szoba létrehozása</span>
                     </button>
                 </div>
 
-                <!-- Csatlakozás meglévő szobához kártya -->
-                <div class="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                <!-- Csatlakozás kóddal kártya -->
+                <div class="bg-slate-900/90 rounded-3xl p-7 sm:p-8 border border-slate-800 hover:border-emerald-500/40 transition-all shadow-xl flex flex-col justify-between">
                     <div>
-                        <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5">
-                            <i data-lucide="log-in" class="w-6 h-6"></i>
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>
+                            </svg>
                         </div>
-                        <h2 class="text-xl font-bold text-slate-900 mb-2">Csatlakozás szobához</h2>
-                        <p class="text-slate-500 text-sm mb-4 leading-relaxed">
-                            Add meg a másik eszközön megjelenő szobakódot a belépéshez.
+                        <h2 class="text-xl font-bold text-white mb-2">Csatlakozás kóddal</h2>
+                        <p class="text-slate-400 text-sm mb-4 leading-relaxed">
+                            Írd be a másik eszközön látható 5 karakteres szobakódot a belépéshez.
                         </p>
                         <div class="mb-4">
                             <label for="room-code-input" class="sr-only">Szobakód</label>
                             <input 
                                 type="text" 
                                 id="room-code-input" 
-                                maxlength="6" 
+                                maxlength="5" 
                                 placeholder="Pl. A7B9X" 
                                 autocomplete="off"
-                                class="w-full text-center font-mono text-2xl font-bold tracking-[0.25em] uppercase py-3 px-4 bg-slate-50 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-colors placeholder:text-slate-300 placeholder:tracking-normal placeholder:font-sans placeholder:text-base placeholder:font-normal"
+                                onkeydown="if(event.key==='Enter') appJoinRoom()"
+                                class="w-full text-center font-mono text-2xl font-extrabold tracking-[0.3em] uppercase py-3.5 px-4 bg-slate-950 border-2 border-slate-700 rounded-2xl text-white focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600 placeholder:tracking-normal placeholder:font-sans placeholder:text-base placeholder:font-normal"
                             >
                         </div>
                     </div>
-                    <button id="join-room-btn" disabled class="w-full py-3.5 px-5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.99]">
-                        <span>Belépés a szobába</span>
-                        <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                    <button type="button" id="join-room-btn" onclick="appJoinRoom()" class="w-full py-4 px-6 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base rounded-2xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2.5 active:scale-[0.98] cursor-pointer">
+                        <span>Belépés</span>
+                        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+                        </svg>
                     </button>
                 </div>
             </div>
 
-            <!-- Hogyan működik? -->
-            <div class="mt-10 bg-white rounded-2xl p-6 border border-slate-200/80">
-                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Hogyan működik?</h3>
+            <!-- Gyors útmutató -->
+            <div class="mt-8 bg-slate-900/50 rounded-2xl p-6 border border-slate-800/80">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                     <div class="flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 text-xs">1</span>
-                        <p class="text-slate-600"><strong class="text-slate-900">Nyiss egy szobát</strong> a laptopodon, és kapni fogsz egy rövid kódot.</p>
+                        <span class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center shrink-0 text-xs border border-indigo-500/30">1</span>
+                        <p class="text-slate-400"><strong class="text-slate-200">Hozz létre egy szobát</strong> a laptopodon, és kapni fogsz egy 5 jegyű kódot.</p>
                     </div>
                     <div class="flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 text-xs">2</span>
-                        <p class="text-slate-600"><strong class="text-slate-900">Lépj be telefonról</strong> a kód beírásával vagy a QR-kód beolvasásával.</p>
+                        <span class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center shrink-0 text-xs border border-indigo-500/30">2</span>
+                        <p class="text-slate-400"><strong class="text-slate-200">Lépj be telefonról</strong> a QR-kód beolvasásával vagy a kód beírásával.</p>
                     </div>
                     <div class="flex items-start gap-3">
-                        <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center shrink-0 text-xs">3</span>
-                        <p class="text-slate-600"><strong class="text-slate-900">Töltsd fel a képeket</strong>, és azonnal letöltheted őket a gépedre.</p>
+                        <span class="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 font-bold flex items-center justify-center shrink-0 text-xs border border-indigo-500/30">3</span>
+                        <p class="text-slate-400"><strong class="text-slate-200">Töltsd fel a képeket</strong>, és azonnal megjelennek, letölthető formában.</p>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 2. SZOBA NÉZET (Fotók feltöltése és valós idejű galéria) -->
+        <!-- 2. SZOBA NÉZET -->
         <section id="room-view" class="hidden">
-            
-            <!-- Mobil szobakód banner (kis képernyőn extra jól látható) -->
-            <div class="sm:hidden bg-indigo-600 text-white rounded-2xl p-4 mb-5 flex items-center justify-between shadow-md shadow-indigo-200">
-                <div>
-                    <div class="text-xs text-indigo-200 font-medium">Aktív szobakód</div>
-                    <div id="mobile-room-code" class="font-mono text-2xl font-extrabold tracking-widest">-----</div>
+
+            <!-- Nagy szobakód és QR-kód fejléc kártya -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/50 border border-slate-800 rounded-3xl p-5 sm:p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                <div class="flex items-center gap-4 text-center sm:text-left">
+                    <div class="hidden sm:flex w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 items-center justify-center shrink-0">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Aktív szobakód (írd be a telefonodon)</div>
+                        <div id="room-big-code" class="font-mono text-3xl sm:text-4xl font-extrabold tracking-[0.25em] text-white">-----</div>
+                    </div>
                 </div>
-                <div class="flex gap-2">
-                    <button id="mobile-copy-btn" class="p-2.5 bg-white/15 hover:bg-white/25 rounded-xl transition-colors" title="Kód másolása">
-                        <i data-lucide="copy" class="w-5 h-5"></i>
+
+                <div class="flex items-center gap-2.5 w-full sm:w-auto justify-center">
+                    <button type="button" onclick="appCopyRoomCode()" class="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-semibold rounded-xl transition-colors cursor-pointer">
+                        <svg class="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+                        </svg>
+                        <span>Kód másolása</span>
                     </button>
-                    <button id="mobile-qr-btn" class="p-2.5 bg-white/15 hover:bg-white/25 rounded-xl transition-colors" title="QR-kód">
-                        <i data-lucide="qr-code" class="w-5 h-5"></i>
+                    <button type="button" onclick="appOpenQrModal()" class="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-colors cursor-pointer">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/>
+                        </svg>
+                        <span>QR-kód</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Feltöltési zóna (Drag & Drop + Mobil gombok) -->
-            <div id="drop-zone" class="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-6 sm:p-8 text-center transition-all duration-200 mb-8 relative overflow-hidden">
-                <!-- Rejtett fájl inputok -->
-                <input type="file" id="file-input" accept="image/*" multiple class="hidden">
-                <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+            <!-- Feltöltési zóna -->
+            <div id="drop-zone" class="bg-slate-900/70 border-2 border-dashed border-slate-700 rounded-3xl p-6 sm:p-8 text-center transition-all duration-200 mb-8 relative overflow-hidden">
+                <input type="file" id="file-input" accept="image/*" multiple onchange="appHandleFilesUpload(this.files)" class="hidden">
+                <input type="file" id="camera-input" accept="image/*" capture="environment" onchange="appHandleFilesUpload(this.files)" class="hidden">
 
                 <div class="max-w-md mx-auto">
-                    <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
-                        <i data-lucide="upload-cloud" class="w-7 h-7"></i>
+                    <div class="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>
+                        </svg>
                     </div>
-                    <h2 class="text-lg sm:text-xl font-bold text-slate-900 mb-1.5">
-                        Fotók küldése a szobába
+                    <h2 class="text-lg sm:text-xl font-bold text-white mb-1.5">
+                        Fotó feltöltése / Kamera
                     </h2>
-                    <p class="text-sm text-slate-500 mb-6">
-                        Válassz képeket a galériából, készíts új fotót, vagy húzd ide a fájlokat laptopon.
+                    <p class="text-sm text-slate-400 mb-6">
+                        Válassz képeket a telefonod galériájából, készíts új fotót, vagy húzd ide a fájlokat.
                     </p>
 
                     <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
-                        <button id="select-files-btn" class="w-full sm:w-auto py-3.5 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm shadow-indigo-200 transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
-                            <i data-lucide="image" class="w-5 h-5"></i>
-                            <span>Képek kiválasztása</span>
+                        <button type="button" onclick="document.getElementById('file-input').click()" class="w-full sm:w-auto py-3.5 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                            </svg>
+                            <span>Fotók kiválasztása</span>
                         </button>
-                        <button id="take-photo-btn" class="w-full sm:w-auto py-3.5 px-6 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
-                            <i data-lucide="camera" class="w-5 h-5"></i>
+                        <button type="button" onclick="document.getElementById('camera-input').click()" class="w-full sm:w-auto py-3.5 px-6 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer">
+                            <svg class="w-5 h-5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>
+                            </svg>
                             <span>Kamera indítása</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Feltöltési folyamatjelző overlay -->
-                <div id="upload-progress-overlay" class="hidden absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 z-10">
-                    <div class="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin mb-3"></div>
-                    <p id="upload-status-text" class="font-semibold text-slate-800 text-base">Képek optimalizálása és feltöltése...</p>
-                    <p id="upload-sub-text" class="text-xs text-slate-500 mt-1">Kérlek várj egy pillanatot</p>
+                <div id="upload-progress-overlay" class="hidden absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 z-10">
+                    <div class="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mb-3"></div>
+                    <p id="upload-status-text" class="font-semibold text-white text-base">Képek optimalizálása és küldése...</p>
+                    <p id="upload-sub-text" class="text-xs text-slate-400 mt-1">Kérlek várj egy pillanatot</p>
                 </div>
             </div>
 
             <!-- Galéria fejléc -->
             <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
                 <div class="flex items-center gap-2.5">
-                    <h3 class="text-lg sm:text-xl font-bold text-slate-900">Megosztott fotók</h3>
-                    <span id="photo-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">0</span>
+                    <h3 class="text-lg sm:text-xl font-bold text-white">Szobában lévő fotók</h3>
+                    <span id="photo-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">0</span>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button id="download-all-btn" class="hidden items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors">
-                        <i data-lucide="download" class="w-4 h-4"></i>
+                    <button type="button" id="download-all-btn" onclick="appDownloadAllPhotos()" class="hidden items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-600/20 transition-colors cursor-pointer">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+                        </svg>
                         <span>Összes letöltése</span>
                     </button>
                 </div>
             </div>
 
             <!-- Üres galéria állapot -->
-            <div id="empty-gallery-state" class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-                <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-4">
-                    <i data-lucide="images" class="w-8 h-8"></i>
+            <div id="empty-gallery-state" class="bg-slate-900/50 rounded-3xl border border-slate-800 p-12 text-center">
+                <div class="w-16 h-16 rounded-full bg-slate-800 text-slate-500 flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                    </svg>
                 </div>
-                <h4 class="text-base font-bold text-slate-800 mb-1">Még nincsenek fotók ebben a szobában</h4>
-                <p class="text-sm text-slate-500 max-w-sm mx-auto">
-                    Tölts fel egy képet a telefonodról a fenti gombokkal, és az itt azonnal meg fog jelenni!
+                <h4 class="text-base font-bold text-slate-200 mb-1">Még nincsenek fotók ebben a szobában</h4>
+                <p class="text-sm text-slate-400 max-w-sm mx-auto">
+                    Lépj be telefonról a <strong class="text-indigo-400 font-mono" id="empty-room-hint">-----</strong> kóddal, és tölts fel egy képet!
                 </p>
             </div>
 
-            <!-- Fotók rács (Grid) -->
-            <div id="photos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-                <!-- A képkártyák dinamikusan ide kerülnek -->
-            </div>
+            <!-- Fotók rács -->
+            <div id="photos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
         </section>
 
     </main>
 
     <!-- Lábléc -->
-    <footer class="border-t border-slate-200 bg-white py-5 mt-auto">
+    <footer class="border-t border-slate-800/80 bg-slate-900/50 py-5 mt-auto">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
             <p>SnapBridge • Valós idejű fotóátvitel eszközök között</p>
-            <p>A feltöltött képek automatikusan optimalizálva tárolódnak a szobában.</p>
+            <p>Automatikus JPEG tömörítés (max. 1200px) a villámgyors szinkronizációért.</p>
         </div>
     </footer>
 
     <!-- QR-KÓD MODÁLIS ABLAK -->
-    <div id="qr-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-8 text-center shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            <button id="close-qr-modal" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
-                <i data-lucide="x" class="w-5 h-5"></i>
+    <div id="qr-modal" onclick="if(event.target===this) appCloseQrModal()" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-6 sm:p-8 text-center shadow-2xl relative">
+            <button type="button" onclick="appCloseQrModal()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
             </button>
 
-            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
-                <i data-lucide="smartphone" class="w-6 h-6"></i>
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto mb-3">
+                <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>
+                </svg>
             </div>
-            <h3 class="text-xl font-bold text-slate-900 mb-1">Csatlakozás telefonnal</h3>
-            <p class="text-sm text-slate-500 mb-5">Olvasd be a kamerával vagy írd be a kódot:</p>
+            <h3 class="text-xl font-bold text-white mb-1">Csatlakozás telefonnal</h3>
+            <p class="text-sm text-slate-400 mb-5">Olvasd be a kamerával a közvetlen belépéshez:</p>
 
-            <!-- QR Canvas -->
-            <div class="bg-white p-4 rounded-2xl border-2 border-slate-100 inline-block shadow-inner mb-4">
-                <canvas id="qr-canvas"></canvas>
+            <!-- QR Canvas fehér háttérrel a biztos beolvasásért -->
+            <div class="bg-white p-4 rounded-2xl inline-block shadow-lg mb-4">
+                <canvas id="qr-canvas" width="210" height="210"></canvas>
             </div>
 
-            <div class="bg-slate-100 rounded-xl py-2.5 px-4 mb-5 flex items-center justify-between">
-                <span class="text-xs font-medium text-slate-500">Szobakód:</span>
-                <span id="modal-room-code" class="font-mono text-xl font-extrabold tracking-widest text-indigo-600">-----</span>
-                <button id="modal-copy-btn" class="text-indigo-600 hover:text-indigo-800 text-xs font-semibold flex items-center gap-1">
-                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-4 mb-5 flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-400">Szobakód:</span>
+                <span id="modal-room-code" class="font-mono text-xl font-extrabold tracking-widest text-indigo-400">-----</span>
+                <button type="button" onclick="appCopyRoomCode()" class="text-indigo-400 hover:text-indigo-300 text-xs font-semibold flex items-center gap-1">
                     <span>Másol</span>
                 </button>
             </div>
 
-            <button id="done-qr-btn" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-colors">
+            <button type="button" onclick="appCloseQrModal()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-colors">
                 Bezárás
             </button>
         </div>
     </div>
 
-    <!-- LIGHTBOX (Kép nagyítása előnézetben) MODÁLIS ABLAK -->
-    <div id="lightbox-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex flex-col">
-        <!-- Felső sáv -->
-        <div class="flex items-center justify-between px-4 sm:px-6 py-4 text-white border-b border-white/10">
+    <!-- LIGHTBOX (Kép nagyítása) MODÁLIS ABLAK -->
+    <div id="lightbox-modal" class="hidden fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col">
+        <div class="flex items-center justify-between px-4 sm:px-6 py-4 text-white border-b border-slate-800">
             <div class="truncate pr-4">
                 <h4 id="lightbox-filename" class="font-semibold text-sm sm:text-base truncate">kep.jpg</h4>
                 <p id="lightbox-meta" class="text-xs text-slate-400">Feltöltve: ma</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-                <button id="lightbox-download-btn" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-colors">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>Letöltés</span>
+                <button type="button" onclick="appDownloadActiveLightbox()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-colors">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+                    </svg>
+                    <span>Mentés</span>
                 </button>
-                <button id="lightbox-delete-btn" class="p-2.5 bg-white/10 hover:bg-rose-600 text-white rounded-xl transition-colors" title="Kép törlése">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                <button type="button" onclick="appDeleteActiveLightbox()" class="p-2.5 bg-slate-800 hover:bg-rose-600 text-white rounded-xl transition-colors" title="Kép törlése">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                    </svg>
                 </button>
-                <button id="close-lightbox-btn" class="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors" title="Bezárás">
-                    <i data-lucide="x" class="w-5 h-5"></i>
+                <button type="button" onclick="appCloseLightbox()" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors" title="Bezárás">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                    </svg>
                 </button>
             </div>
         </div>
 
-        <!-- Kép konténer -->
-        <div class="flex-1 flex items-center justify-center p-4 overflow-hidden" id="lightbox-backdrop">
-            <img id="lightbox-img" src="" alt="Nagyított kép" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl">
+        <div onclick="if(event.target===this) appCloseLightbox()" class="flex-1 flex items-center justify-center p-4 overflow-hidden">
+            <img id="lightbox-img" src="" alt="Nagyított kép" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl">
         </div>
     </div>
 
     <!-- MEGERŐSÍTŐ DIALÓGUS (Törléshez) -->
-    <div id="confirm-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl">
-            <h3 class="text-lg font-bold text-slate-900 mb-2">Kép törlése</h3>
-            <p class="text-sm text-slate-600 mb-6">Biztosan törölni szeretnéd ezt a fotót a szobából? Ez minden csatlakozott eszközről eltávolítja.</p>
+    <div id="confirm-modal" onclick="if(event.target===this) appCloseConfirmModal()" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-2">Kép törlése</h3>
+            <p class="text-sm text-slate-400 mb-6">Biztosan törölni szeretnéd ezt a fotót a szobából? Ez minden csatlakozott eszközről eltávolítja.</p>
             <div class="flex justify-end gap-3">
-                <button id="cancel-confirm-btn" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">Mégse</button>
-                <button id="accept-confirm-btn" class="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-colors">Törlés</button>
+                <button type="button" onclick="appCloseConfirmModal()" class="px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800 rounded-xl transition-colors">Mégse</button>
+                <button type="button" onclick="appExecuteDeletePhoto()" class="px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-colors">Törlés</button>
             </div>
         </div>
     </div>
 
     <!-- FIREBASE BEÁLLÍTÁSI SEGÉDLET MODÁLIS ABLAK -->
-    <div id="help-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button id="close-help-modal" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
-                <i data-lucide="x" class="w-5 h-5"></i>
+    <div id="help-modal" onclick="if(event.target===this) appCloseHelpModal()" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button type="button" onclick="appCloseHelpModal()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
             </button>
 
             <div class="flex items-center gap-3 mb-4">
-                <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                    <i data-lucide="database" class="w-5 h-5"></i>
+                <div class="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>
+                    </svg>
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900">Firebase beállítási segédlet</h3>
-                    <p class="text-xs text-slate-500">Projekt: <code class="font-mono text-indigo-600">exporting-89727</code></p>
+                    <h3 class="text-lg font-bold text-white">Firebase beállítási segédlet</h3>
+                    <p class="text-xs text-slate-400">Projekt: <code class="font-mono text-indigo-400">exporting-89727</code></p>
                 </div>
             </div>
 
-            <div class="space-y-4 text-sm text-slate-600">
+            <div class="space-y-4 text-sm text-slate-300">
                 <p>
-                    Ha új a Firebase projekted, és a szoba létrehozása vagy a feltöltés jogosultsági hibát jelez, ellenőrizd az alábbi két beállítást a <strong>Firebase Console</strong> felületén:
+                    Ahhoz, hogy a telefonodról feltöltött képek azonnal megjelenjenek a laptopodon, a Firebase projektben engedélyezni kell a <strong>Cloud Firestore</strong> adatbázis írását és olvasását:
                 </p>
 
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="font-bold text-slate-800 text-xs uppercase tracking-wider">1. Firestore Database Rules</span>
-                        <button id="copy-rules-btn" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span class="font-bold text-slate-200 text-xs uppercase tracking-wider">Firestore Database → Rules</span>
+                        <button type="button" onclick="appCopyFirestoreRules()" class="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
                             <span>Szabályok másolása</span>
                         </button>
                     </div>
-                    <p class="text-xs text-slate-500 mb-2">
-                        Nyisd meg a <strong>Firestore Database → Rules</strong> fület, és illeszd be ezt a szabályt:
+                    <p class="text-xs text-slate-400 mb-2">
+                        Nyisd meg a Firebase Console-ban a <strong>Build → Firestore Database → Rules</strong> fület, illeszd be az alábbi szabályt, majd kattints a <strong>Publish</strong> gombra:
                     </p>
-                    <pre id="firestore-rules-code" class="bg-slate-900 text-slate-100 p-3 rounded-xl text-xs font-mono overflow-x-auto leading-relaxed">rules_version = '2';
+                    <pre id="firestore-rules-code" class="bg-slate-900 border border-slate-800 text-emerald-300 p-3 rounded-xl text-xs font-mono overflow-x-auto leading-relaxed">rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /rooms/{roomCode} {
@@ -413,16 +481,9 @@ service cloud.firestore {
   }
 }</pre>
                 </div>
-
-                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-                    <span class="font-bold text-slate-800 text-xs uppercase tracking-wider block mb-1">2. Anonymous Authentication (Opcionális)</span>
-                    <p class="text-xs text-slate-500">
-                        Az <strong>Authentication → Sign-in method</strong> menüpontban engedélyezheted az <em>Anonymous</em> belépést, de az alkalmazás enélkül is működik.
-                    </p>
-                </div>
             </div>
 
-            <button id="done-help-btn" class="mt-6 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-colors">
+            <button type="button" onclick="appCloseHelpModal()" class="mt-6 w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-colors">
                 Rendben, értem
             </button>
         </div>
@@ -431,16 +492,9 @@ service cloud.firestore {
     <!-- TOAST ÉRTESÍTÉSEK KONTÉNER -->
     <div id="toast-container" class="fixed bottom-5 right-5 left-5 sm:left-auto z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- FIREBASE ÉS ALKALMAZÁS LOGIKA -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, addDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Ikonok inicializálása
-        lucide.createIcons();
-
-        // Saját Firebase konfiguráció
+    <!-- KLASSZIKUS, AZONNAL LEFUTÓ ALKALMAZÁS LOGIKA (ES modulok nélkül) -->
+    <script>
+        // 1. Felhasználó saját Firebase konfigurációja
         const firebaseConfig = {
             apiKey: "AIzaSyAQ71cDj_FLSnKHnAJ7zU56JzqjrWvWvTA",
             authDomain: "exporting-89727.firebaseapp.com",
@@ -451,341 +505,330 @@ service cloud.firestore {
             measurementId: "G-3ZESCME5VH"
         };
 
-        // Alkalmazás állapot
-        let app = null;
+        // 2. Globális állapotváltozók
         let db = null;
-        let auth = null;
-        let currentUserId = 'guest_' + Math.random().toString(36).substring(2, 9);
+        let firebaseReady = false;
+        let currentUserId = 'user_' + Math.random().toString(36).substring(2, 9);
         let currentRoomCode = null;
         let unsubscribePhotos = null;
         let roomPhotos = [];
         let activeLightboxPhoto = null;
         let pendingDeletePhotoId = null;
 
-        // DOM Elemek
-        const els = {
-            statusDot: document.getElementById('status-dot'),
-            statusText: document.getElementById('status-text'),
-            permissionBanner: document.getElementById('permission-banner'),
-            bannerOpenHelpBtn: document.getElementById('banner-open-help-btn'),
-            openHelpBtn: document.getElementById('open-help-btn'),
-            helpModal: document.getElementById('help-modal'),
-            closeHelpModal: document.getElementById('close-help-modal'),
-            doneHelpBtn: document.getElementById('done-help-btn'),
-            copyRulesBtn: document.getElementById('copy-rules-btn'),
-            firestoreRulesCode: document.getElementById('firestore-rules-code'),
-            lobbyView: document.getElementById('lobby-view'),
-            roomView: document.getElementById('room-view'),
-            headerRoomControls: document.getElementById('header-room-controls'),
-            headerRoomCode: document.getElementById('header-room-code'),
-            mobileRoomCode: document.getElementById('mobile-room-code'),
-            createRoomBtn: document.getElementById('create-room-btn'),
-            joinRoomBtn: document.getElementById('join-room-btn'),
-            roomCodeInput: document.getElementById('room-code-input'),
-            leaveRoomBtn: document.getElementById('leave-room-btn'),
-            logoBtn: document.getElementById('logo-btn'),
-            copyCodeBtn: document.getElementById('copy-code-btn'),
-            mobileCopyBtn: document.getElementById('mobile-copy-btn'),
-            showQrBtn: document.getElementById('show-qr-btn'),
-            mobileQrBtn: document.getElementById('mobile-qr-btn'),
-            dropZone: document.getElementById('drop-zone'),
-            fileInput: document.getElementById('file-input'),
-            cameraInput: document.getElementById('camera-input'),
-            selectFilesBtn: document.getElementById('select-files-btn'),
-            takePhotoBtn: document.getElementById('take-photo-btn'),
-            uploadProgressOverlay: document.getElementById('upload-progress-overlay'),
-            uploadStatusText: document.getElementById('upload-status-text'),
-            uploadSubText: document.getElementById('upload-sub-text'),
-            photoCountBadge: document.getElementById('photo-count-badge'),
-            downloadAllBtn: document.getElementById('download-all-btn'),
-            emptyGalleryState: document.getElementById('empty-gallery-state'),
-            photosGrid: document.getElementById('photos-grid'),
-            // QR Modal
-            qrModal: document.getElementById('qr-modal'),
-            qrCanvas: document.getElementById('qr-canvas'),
-            modalRoomCode: document.getElementById('modal-room-code'),
-            modalCopyBtn: document.getElementById('modal-copy-btn'),
-            closeQrModal: document.getElementById('close-qr-modal'),
-            doneQrBtn: document.getElementById('done-qr-btn'),
-            // Lightbox Modal
-            lightboxModal: document.getElementById('lightbox-modal'),
-            lightboxImg: document.getElementById('lightbox-img'),
-            lightboxFilename: document.getElementById('lightbox-filename'),
-            lightboxMeta: document.getElementById('lightbox-meta'),
-            lightboxDownloadBtn: document.getElementById('lightbox-download-btn'),
-            lightboxDeleteBtn: document.getElementById('lightbox-delete-btn'),
-            closeLightboxBtn: document.getElementById('close-lightbox-btn'),
-            lightboxBackdrop: document.getElementById('lightbox-backdrop'),
-            // Confirm Modal
-            confirmModal: document.getElementById('confirm-modal'),
-            cancelConfirmBtn: document.getElementById('cancel-confirm-btn'),
-            acceptConfirmBtn: document.getElementById('accept-confirm-btn'),
-            toastContainer: document.getElementById('toast-container')
-        };
+        // 3. Kapcsolat állapotának frissítése a fejlécben
+        function setConnectionStatus(state, text, detailMessage) {
+            const dot = document.getElementById('status-dot');
+            const label = document.getElementById('status-text');
+            const banner = document.getElementById('firebase-alert-banner');
+            const bannerMsg = document.getElementById('firebase-alert-message');
 
-        /**
-         * Toast értesítés megjelenítése
-         */
-        function showToast(message, type = 'info') {
+            if (!dot || !label) return;
+
+            if (state === 'connected') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0';
+                label.textContent = text || 'Firebase csatlakozva';
+                if (banner) banner.classList.add('hidden');
+            } else if (state === 'warning') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0';
+                label.textContent = text || 'Helyi mód (Firestore hiba)';
+                if (banner && detailMessage) {
+                    bannerMsg.innerHTML = detailMessage;
+                    banner.classList.remove('hidden');
+                }
+            } else if (state === 'error') {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0';
+                label.textContent = text || 'Offline / Hiba';
+                if (banner && detailMessage) {
+                    bannerMsg.innerHTML = detailMessage;
+                    banner.classList.remove('hidden');
+                }
+            }
+        }
+
+        // 4. Toast értesítés megjelenítése
+        function showToast(message, type) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
             const toast = document.createElement('div');
             const colors = {
-                success: 'bg-emerald-900 text-white border-emerald-700',
-                error: 'bg-rose-900 text-white border-rose-700',
-                info: 'bg-slate-900 text-white border-slate-700'
-            };
-            const icons = {
-                success: 'check-circle',
-                error: 'alert-circle',
-                info: 'info'
+                success: 'bg-emerald-950/95 text-emerald-100 border-emerald-700/80',
+                error: 'bg-rose-950/95 text-rose-100 border-rose-700/80',
+                info: 'bg-slate-900/95 text-slate-100 border-slate-700'
             };
 
-            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium toast-enter ${colors[type] || colors.info}`;
-            toast.innerHTML = `
-                <i data-lucide="${icons[type] || 'info'}" class="w-4 h-4 shrink-0"></i>
-                <span>${message}</span>
-            `;
-            els.toastContainer.appendChild(toast);
-            lucide.createIcons({ root: toast });
+            toast.className = 'pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border text-sm font-medium toast-enter ' + (colors[type] || colors.info);
+            toast.textContent = message;
+            container.appendChild(toast);
 
-            setTimeout(() => {
+            setTimeout(function () {
                 toast.style.opacity = '0';
                 toast.style.transform = 'translateY(10px)';
-                toast.style.transition = 'all 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
+                toast.style.transition = 'all 0.25s ease';
+                setTimeout(function () {
+                    if (toast.parentNode) toast.parentNode.removeChild(toast);
+                }, 250);
             }, 3500);
         }
 
-        /**
-         * Jogosultsági hiba kezelése (Security Rules figyelmeztetés megjelenítése)
-         */
-        function handleFirestoreError(error, defaultMessage) {
-            console.error("Firestore hiba:", error);
-            if (error && (error.code === 'permission-denied' || (error.message && error.message.toLowerCase().includes('permission')))) {
-                els.permissionBanner.classList.remove('hidden');
-                showToast('Firestore jogosultsági hiba! Kattints a "Szabályok megtekintése" gombra.', 'error');
-            } else {
-                showToast(defaultMessage, 'error');
-            }
-        }
-
-        /**
-         * Firebase inicializálása és névtelen hitelesítés (zökkenőmentes fallback-kel)
-         */
-        async function initFirebase() {
+        // 5. Firebase inicializálása biztonságos try-catch blokkban
+        function initFirebaseSafe() {
             try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-
-                // Megpróbálunk névtelenül bejelentkezni; ha nincs engedélyezve a projektben, folytatjuk auth nélkül
-                try {
-                    const userCred = await signInAnonymously(auth);
-                    if (userCred && userCred.user) {
-                        currentUserId = userCred.user.uid;
-                    }
-                } catch (authErr) {
-                    console.warn("Anonymous Auth nincs engedélyezve vagy sikertelen, folytatás közvetlen Firestore eléréssel:", authErr.code);
+                if (typeof firebase === 'undefined') {
+                    setConnectionStatus(
+                        'warning',
+                        'Helyi mód (SDK offline)',
+                        '<strong>Figyelem:</strong> A Firebase SDK nem töltődött be a böngészőben, az alkalmazás helyi módban fut.'
+                    );
+                    return;
                 }
 
-                // UI engedélyezése
-                els.statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
-                els.statusText.textContent = 'Online';
-                els.createRoomBtn.disabled = false;
-                els.joinRoomBtn.disabled = false;
-
-                // URL paraméter ellenőrzése (?room=XXXXX), pl. QR-kód beolvasás után
-                const urlParams = new URLSearchParams(window.location.search);
-                const roomParam = urlParams.get('room');
-                if (roomParam && !currentRoomCode) {
-                    const cleaned = roomParam.trim().toUpperCase();
-                    els.roomCodeInput.value = cleaned;
-                    joinRoom(cleaned);
+                if (!firebase.apps || firebase.apps.length === 0) {
+                    firebase.initializeApp(firebaseConfig);
                 }
-            } catch (error) {
-                console.error("Firebase inicializálási hiba:", error);
-                els.statusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
-                els.statusText.textContent = 'Kapcsolati hiba';
-                showToast('Nem sikerült csatlakozni a Firebase szerverhez.', 'error');
+
+                db = firebase.firestore();
+                firebaseReady = true;
+                setConnectionStatus('connected', 'Firebase csatlakozva');
+
+                // Névtelen hitelesítés megkísérlése (ha nincs bekapcsolva a konzolban, nem akad meg)
+                if (firebase.auth) {
+                    firebase.auth().signInAnonymously()
+                        .then(function (cred) {
+                            if (cred && cred.user) {
+                                currentUserId = cred.user.uid;
+                            }
+                        })
+                        .catch(function (err) {
+                            console.warn('Anonymous auth kihagyva:', err && err.code);
+                        });
+                }
+            } catch (err) {
+                console.error('Firebase init hiba:', err);
+                setConnectionStatus(
+                    'error',
+                    'Firebase hiba',
+                    '<strong>Firebase inicializálási hiba:</strong> ' + (err.message || 'Ismeretlen hiba')
+                );
             }
         }
 
-        /**
-         * Könnyen olvasható 5 karakteres szobakód generálása
-         */
-        function generateRoomCode(length = 5) {
+        // 6. Helyi tartalék tárolás (localStorage) szobánként
+        function savePhotosToLocalBackup(code, photos) {
+            try {
+                localStorage.setItem('snapbridge_room_' + code, JSON.stringify(photos));
+            } catch (e) {
+                // Ha betelt a localStorage kvóta, csak memóriában tartjuk
+            }
+        }
+
+        function loadPhotosFromLocalBackup(code) {
+            try {
+                const raw = localStorage.getItem('snapbridge_room_' + code);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // 7. 5 karakteres szobakód generálása
+        function generateRoomCode() {
             const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-            let result = '';
-            for (let i = 0; i < length; i++) {
-                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            let code = '';
+            for (let i = 0; i < 5; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
             }
-            return result;
+            return code;
         }
 
-        /**
-         * Új szoba létrehozása a `rooms/{roomCode}` gyűjteményben
-         */
-        async function createNewRoom() {
-            if (!db) return;
-            els.createRoomBtn.disabled = true;
-            const originalHTML = els.createRoomBtn.innerHTML;
-            els.createRoomBtn.innerHTML = `<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div><span>Létrehozás...</span>`;
+        // 8. Új szoba létrehozása (azonnali felületváltás + Firestore szinkron)
+        window.appCreateNewRoom = function () {
+            const code = generateRoomCode();
+            enterRoomUI(code);
+            showToast('Szoba létrehozva: ' + code, 'success');
 
-            try {
-                let code = generateRoomCode(5);
-                let attempts = 0;
+            if (firebaseReady && db) {
+                db.collection('rooms').doc(code).set({
+                    code: code,
+                    createdAt: Date.now(),
+                    createdBy: currentUserId
+                }).then(function () {
+                    setConnectionStatus('connected', 'Firebase csatlakozva');
+                }).catch(function (err) {
+                    handleFirestoreSyncError(err);
+                });
+            }
+        };
 
-                while (attempts < 5) {
-                    const roomRef = doc(db, 'rooms', code);
-                    const snap = await getDoc(roomRef);
-                    if (!snap.exists()) {
-                        await setDoc(roomRef, {
+        // 9. Csatlakozás meglévő szobához kóddal
+        window.appJoinRoom = function (explicitCode) {
+            const input = document.getElementById('room-code-input');
+            const raw = explicitCode !== undefined ? explicitCode : (input ? input.value : '');
+            const code = String(raw).trim().toUpperCase();
+
+            if (code.length < 4) {
+                showToast('Kérlek írj be egy 5 karakteres szobakódot!', 'error');
+                if (input) input.focus();
+                return;
+            }
+
+            // Ha van helyi mentés vagy nincs Firebase, azonnal belépünk; ha van Firebase, ellenőrizzük
+            if (!firebaseReady || !db) {
+                enterRoomUI(code);
+                showToast('Belépve a(z) ' + code + ' szobába!', 'success');
+                return;
+            }
+
+            const joinBtn = document.getElementById('join-room-btn');
+            if (joinBtn) joinBtn.disabled = true;
+
+            db.collection('rooms').doc(code).get()
+                .then(function (docSnap) {
+                    if (!docSnap.exists) {
+                        // Ha még nem létezett a dokumentum, de a felhasználó beírta, létrehozzuk neki, hogy ne akadjon el
+                        return db.collection('rooms').doc(code).set({
                             code: code,
                             createdAt: Date.now(),
                             createdBy: currentUserId
                         });
-                        break;
                     }
-                    code = generateRoomCode(5);
-                    attempts++;
-                }
+                })
+                .then(function () {
+                    setConnectionStatus('connected', 'Firebase csatlakozva');
+                    enterRoomUI(code);
+                    showToast('Csatlakoztál a(z) ' + code + ' szobához!', 'success');
+                })
+                .catch(function (err) {
+                    handleFirestoreSyncError(err);
+                    enterRoomUI(code);
+                    showToast('Belépve a(z) ' + code + ' szobába (helyi mód)', 'info');
+                })
+                .finally(function () {
+                    if (joinBtn) joinBtn.disabled = false;
+                });
+        };
 
-                els.permissionBanner.classList.add('hidden');
-                enterRoomUI(code);
-                showToast(`Szoba létrehozva: ${code}`, 'success');
-            } catch (error) {
-                handleFirestoreError(error, 'Hiba történt a szoba létrehozásakor.');
-            } finally {
-                els.createRoomBtn.disabled = false;
-                els.createRoomBtn.innerHTML = originalHTML;
-                lucide.createIcons({ root: els.createRoomBtn });
+        // 10. Firestore hibák közérthető kezelése
+        function handleFirestoreSyncError(err) {
+            console.error('Firestore hiba:', err);
+            const code = err && err.code ? err.code : '';
+            const msg = err && err.message ? err.message : '';
+
+            if (code === 'permission-denied' || msg.toLowerCase().includes('permission')) {
+                setConnectionStatus(
+                    'warning',
+                    'Firestore szabály tiltja',
+                    '<strong>Jogosultsági hiba (permission-denied):</strong> A Firebase Firestore szabályai jelenleg tiltják az írást/olvasást. Kattints a <em>Szabályok megnyitása</em> gombra!'
+                );
+            } else if (code === 'not-found' || msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('does not exist')) {
+                setConnectionStatus(
+                    'error',
+                    'Nincs Firestore adatbázis',
+                    '<strong>Hiányzó adatbázis:</strong> A <code>exporting-89727</code> projektben még nincs létrehozva a Cloud Firestore adatbázis a Firebase Console-ban.'
+                );
+            } else {
+                setConnectionStatus(
+                    'warning',
+                    'Szinkronizációs hiba',
+                    '<strong>Firestore hiba (' + (code || 'kapcsolat') + '):</strong> ' + msg
+                );
             }
         }
 
-        /**
-         * Csatlakozás meglévő szobához (`rooms/{roomCode}`)
-         */
-        async function joinRoom(rawCode) {
-            if (!db) return;
-            const code = rawCode.trim().toUpperCase();
-
-            if (code.length < 4) {
-                showToast('Kérlek adj meg egy érvényes szobakódot!', 'error');
-                els.roomCodeInput.focus();
-                return;
-            }
-
-            els.joinRoomBtn.disabled = true;
-            const originalHTML = els.joinRoomBtn.innerHTML;
-            els.joinRoomBtn.innerHTML = `<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div><span>Belépés...</span>`;
-
-            try {
-                const roomRef = doc(db, 'rooms', code);
-                const snap = await getDoc(roomRef);
-
-                if (!snap.exists()) {
-                    showToast(`Nem található ilyen szoba: ${code}`, 'error');
-                    return;
-                }
-
-                els.permissionBanner.classList.add('hidden');
-                enterRoomUI(code);
-                showToast(`Csatlakoztál a(z) ${code} szobához!`, 'success');
-            } catch (error) {
-                handleFirestoreError(error, 'Nem sikerült csatlakozni a szobához.');
-            } finally {
-                els.joinRoomBtn.disabled = false;
-                els.joinRoomBtn.innerHTML = originalHTML;
-                lucide.createIcons({ root: els.joinRoomBtn });
-            }
-        }
-
-        /**
-         * Felület átváltása szoba nézetre és valós idejű figyelés indítása
-         */
+        // 11. Átváltás a Szoba nézetre
         function enterRoomUI(code) {
             currentRoomCode = code;
-            
+
+            // URL frissítése ?room=KOD paraméterrel
             try {
-                const url = new URL(window.location);
+                const url = new URL(window.location.href);
                 url.searchParams.set('room', code);
-                window.history.replaceState({}, '', url);
+                window.history.replaceState({}, '', url.toString());
             } catch (e) {}
 
-            els.headerRoomCode.textContent = code;
-            els.mobileRoomCode.textContent = code;
-            els.modalRoomCode.textContent = code;
+            // Kódok kiírása minden helyre
+            document.getElementById('header-room-code').textContent = code;
+            document.getElementById('room-big-code').textContent = code;
+            document.getElementById('modal-room-code').textContent = code;
+            document.getElementById('empty-room-hint').textContent = code;
 
-            els.lobbyView.classList.add('hidden');
-            els.roomView.classList.remove('hidden');
-            els.headerRoomControls.classList.remove('hidden');
-            els.headerRoomControls.classList.add('flex');
+            // Nézetek váltása
+            document.getElementById('lobby-view').classList.add('hidden');
+            document.getElementById('room-view').classList.remove('hidden');
 
+            const headerControls = document.getElementById('header-room-controls');
+            headerControls.classList.remove('hidden');
+            headerControls.classList.add('flex');
+
+            // Helyi képek azonnali betöltése, majd valós idejű Firestore listener indítása
+            roomPhotos = loadPhotosFromLocalBackup(code);
+            renderGallery();
             subscribeToRoomPhotos(code);
         }
 
-        /**
-         * Kilépés a szobából
-         */
-        function leaveRoom() {
+        // 12. Kilépés a szobából
+        window.appLeaveRoom = function () {
             if (unsubscribePhotos) {
                 unsubscribePhotos();
                 unsubscribePhotos = null;
             }
             currentRoomCode = null;
             roomPhotos = [];
-            els.photosGrid.innerHTML = '';
-            els.roomCodeInput.value = '';
+            document.getElementById('photos-grid').innerHTML = '';
+            document.getElementById('room-code-input').value = '';
 
             try {
-                const url = new URL(window.location);
+                const url = new URL(window.location.href);
                 url.searchParams.delete('room');
-                window.history.replaceState({}, '', url);
+                window.history.replaceState({}, '', url.toString());
             } catch (e) {}
 
-            els.roomView.classList.add('hidden');
-            els.headerRoomControls.classList.add('hidden');
-            els.headerRoomControls.classList.remove('flex');
-            els.lobbyView.classList.remove('hidden');
-        }
+            document.getElementById('room-view').classList.add('hidden');
+            const headerControls = document.getElementById('header-room-controls');
+            headerControls.classList.add('hidden');
+            headerControls.classList.remove('flex');
+            document.getElementById('lobby-view').classList.remove('hidden');
+        };
 
-        /**
-         * Valós idejű Firestore listener a `rooms/{roomCode}/photos` gyűjteményre
-         */
+        // 13. Valós idejű Firestore szinkronizáció (`rooms/{roomCode}/photos`)
         function subscribeToRoomPhotos(roomCode) {
-            if (!db) return;
-            if (unsubscribePhotos) unsubscribePhotos();
+            if (!firebaseReady || !db) return;
+            if (unsubscribePhotos) {
+                unsubscribePhotos();
+                unsubscribePhotos = null;
+            }
 
-            const photosCol = collection(db, 'rooms', roomCode, 'photos');
-
-            unsubscribePhotos = onSnapshot(photosCol, (snapshot) => {
-                const fetched = [];
-                snapshot.forEach((docSnap) => {
-                    fetched.push({
-                        id: docSnap.id,
-                        ...docSnap.data()
+            unsubscribePhotos = db.collection('rooms').doc(roomCode).collection('photos')
+                .onSnapshot(function (snapshot) {
+                    setConnectionStatus('connected', 'Firebase csatlakozva');
+                    const fetched = [];
+                    snapshot.forEach(function (docSnap) {
+                        const data = docSnap.data();
+                        fetched.push(Object.assign({ id: docSnap.id }, data));
                     });
-                });
 
-                // Időrendi rendezés: legújabb elöl
-                fetched.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                roomPhotos = fetched;
-                renderGallery();
-            }, (error) => {
-                handleFirestoreError(error, 'Hiba a képek valós idejű frissítésekor.');
-            });
+                    // Legújabb fotók elöl
+                    fetched.sort(function (a, b) {
+                        return (b.createdAt || 0) - (a.createdAt || 0);
+                    });
+
+                    roomPhotos = fetched;
+                    savePhotosToLocalBackup(roomCode, roomPhotos);
+                    renderGallery();
+                }, function (err) {
+                    handleFirestoreSyncError(err);
+                });
         }
 
-        /**
-         * Kép optimalizálása és JPEG tömörítése (max. 1200px, < 1MB Firestore limit)
-         */
-        function compressImageToDataURL(file, maxDimension = 1200, initialQuality = 0.82) {
-            return new Promise((resolve, reject) => {
+        // 14. Kép optimalizálása és JPEG tömörítése (max. 1200px, < 900KB)
+        function compressImageToDataURL(file, maxDimension, initialQuality) {
+            return new Promise(function (resolve, reject) {
                 const reader = new FileReader();
-                reader.onerror = () => reject(new Error('Fájl olvasási hiba'));
-                reader.onload = (event) => {
+                reader.onerror = function () { reject(new Error('Fájl olvasási hiba')); };
+                reader.onload = function (event) {
                     const img = new Image();
-                    img.onerror = () => reject(new Error('Érvénytelen képformátum'));
-                    img.onload = () => {
+                    img.onerror = function () { reject(new Error('Érvénytelen képformátum')); };
+                    img.onload = function () {
                         let width = img.width;
                         let height = img.height;
 
@@ -803,7 +846,7 @@ service cloud.firestore {
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
-                        
+
                         ctx.fillStyle = '#FFFFFF';
                         ctx.fillRect(0, 0, width, height);
                         ctx.drawImage(img, 0, 0, width, height);
@@ -826,7 +869,7 @@ service cloud.firestore {
                         }
 
                         resolve({
-                            dataUrl,
+                            dataUrl: dataUrl,
                             width: canvas.width,
                             height: canvas.height
                         });
@@ -837,169 +880,190 @@ service cloud.firestore {
             });
         }
 
-        /**
-         * Kiválasztott / behúzott képek feldolgozása és feltöltése a `rooms/{roomCode}/photos` gyűjteménybe
-         */
-        async function handleFilesUpload(fileList) {
-            if (!db || !currentRoomCode) return;
-            const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+        // 15. Képek feltöltése a szobába
+        window.appHandleFilesUpload = async function (fileList) {
+            if (!currentRoomCode || !fileList || fileList.length === 0) return;
+
+            const files = Array.from(fileList).filter(function (f) {
+                return f.type && f.type.startsWith('image/');
+            });
 
             if (files.length === 0) {
                 showToast('Kérlek csak képfájlokat válassz ki!', 'error');
                 return;
             }
 
-            els.uploadProgressOverlay.classList.remove('hidden');
-            const photosCol = collection(db, 'rooms', currentRoomCode, 'photos');
+            const overlay = document.getElementById('upload-progress-overlay');
+            const statusText = document.getElementById('upload-status-text');
+            const subText = document.getElementById('upload-sub-text');
+
+            overlay.classList.remove('hidden');
             let successCount = 0;
 
             try {
                 for (let i = 0; i < files.length; i++) {
                     const file = files[i];
-                    els.uploadStatusText.textContent = `Feldolgozás és küldés (${i + 1} / ${files.length})...`;
-                    els.uploadSubText.textContent = file.name;
+                    statusText.textContent = 'Feldolgozás és küldés (' + (i + 1) + ' / ' + files.length + ')...';
+                    subText.textContent = file.name;
 
                     const compressed = await compressImageToDataURL(file, 1200, 0.82);
-                    
-                    const baseName = file.name.replace(/\.[^/.]+$/, "") || `foto_${Date.now()}`;
-                    const cleanFileName = `${baseName}.jpg`;
+                    const baseName = file.name.replace(/\.[^/.]+$/, '') || ('foto_' + Date.now());
+                    const cleanFileName = baseName + '.jpg';
 
-                    await addDoc(photosCol, {
+                    const photoPayload = {
                         fileName: cleanFileName,
                         imageData: compressed.dataUrl,
                         width: compressed.width,
                         height: compressed.height,
                         createdAt: Date.now(),
                         uploadedBy: currentUserId
-                    });
+                    };
+
+                    if (firebaseReady && db) {
+                        try {
+                            await db.collection('rooms').doc(currentRoomCode).collection('photos').add(photoPayload);
+                        } catch (fsErr) {
+                            handleFirestoreSyncError(fsErr);
+                            // Helyi tartalék mentés, hogy legalább ezen az eszközön ne vesszen el
+                            photoPayload.id = 'local_' + Date.now() + '_' + i;
+                            roomPhotos.unshift(photoPayload);
+                            savePhotosToLocalBackup(currentRoomCode, roomPhotos);
+                            renderGallery();
+                        }
+                    } else {
+                        photoPayload.id = 'local_' + Date.now() + '_' + i;
+                        roomPhotos.unshift(photoPayload);
+                        savePhotosToLocalBackup(currentRoomCode, roomPhotos);
+                        renderGallery();
+                    }
 
                     successCount++;
                 }
 
                 if (successCount > 0) {
-                    showToast(`${successCount} fotó sikeresen elküldve a szobába!`, 'success');
+                    showToast(successCount + ' fotó sikeresen feltöltve!', 'success');
                 }
-            } catch (error) {
-                handleFirestoreError(error, 'Hiba történt a kép feltöltése közben.');
+            } catch (err) {
+                console.error('Feltöltési hiba:', err);
+                showToast('Hiba történt a kép feldolgozásakor.', 'error');
             } finally {
-                els.uploadProgressOverlay.classList.add('hidden');
-                els.fileInput.value = '';
-                els.cameraInput.value = '';
+                overlay.classList.add('hidden');
+                document.getElementById('file-input').value = '';
+                document.getElementById('camera-input').value = '';
             }
-        }
+        };
 
-        /**
-         * Időbélyeg formázása magyarul
-         */
-        function formatTime(timestamp) {
-            if (!timestamp) return '';
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        /**
-         * Egyetlen kép letöltése az eszközre
-         */
-        function downloadPhoto(photo) {
-            const link = document.createElement('a');
-            link.href = photo.imageData;
-            link.download = photo.fileName || `snapbridge_${photo.id}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast(`Letöltés elindítva: ${photo.fileName}`, 'info');
-        }
-
-        /**
-         * Összes kép letöltése egymás után
-         */
-        async function downloadAllPhotos() {
-            if (roomPhotos.length === 0) return;
-            showToast(`${roomPhotos.length} kép letöltése folyamatban...`, 'info');
-            for (let i = 0; i < roomPhotos.length; i++) {
-                downloadPhoto(roomPhotos[i]);
-                await new Promise(r => setTimeout(r, 350)); // Kis szünet, hogy a böngésző ne blokkolja
-            }
-        }
-
-        /**
-         * Galéria újrarenderelése
-         */
+        // 16. Galéria kirajzolása
         function renderGallery() {
-            els.photoCountBadge.textContent = roomPhotos.length;
+            const badge = document.getElementById('photo-count-badge');
+            const emptyState = document.getElementById('empty-gallery-state');
+            const grid = document.getElementById('photos-grid');
+            const downloadAllBtn = document.getElementById('download-all-btn');
+
+            badge.textContent = roomPhotos.length;
 
             if (roomPhotos.length === 0) {
-                els.emptyGalleryState.classList.remove('hidden');
-                els.photosGrid.innerHTML = '';
-                els.downloadAllBtn.classList.add('hidden');
-                els.downloadAllBtn.classList.remove('flex');
+                emptyState.classList.remove('hidden');
+                grid.innerHTML = '';
+                downloadAllBtn.classList.add('hidden');
+                downloadAllBtn.classList.remove('flex');
                 return;
             }
 
-            els.emptyGalleryState.classList.add('hidden');
+            emptyState.classList.add('hidden');
             if (roomPhotos.length > 1) {
-                els.downloadAllBtn.classList.remove('hidden');
-                els.downloadAllBtn.classList.add('flex');
+                downloadAllBtn.classList.remove('hidden');
+                downloadAllBtn.classList.add('flex');
             } else {
-                els.downloadAllBtn.classList.add('hidden');
-                els.downloadAllBtn.classList.remove('flex');
+                downloadAllBtn.classList.add('hidden');
+                downloadAllBtn.classList.remove('flex');
             }
 
-            els.photosGrid.innerHTML = '';
+            grid.innerHTML = '';
 
-            roomPhotos.forEach((photo) => {
+            roomPhotos.forEach(function (photo) {
                 const card = document.createElement('div');
-                card.className = 'group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col';
+                card.className = 'group bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-lg hover:border-indigo-500/40 transition-all flex flex-col';
 
-                card.innerHTML = `
-                    <div class="relative aspect-[4/3] bg-slate-100 overflow-hidden cursor-pointer preview-trigger">
-                        <img src="${photo.imageData}" alt="${photo.fileName}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                        <div class="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors flex items-center justify-center">
-                            <span class="opacity-0 group-hover:opacity-100 bg-white/90 text-slate-900 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm transition-opacity flex items-center gap-1.5">
-                                <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
-                                Nagyítás
-                            </span>
-                        </div>
-                        <button class="delete-btn absolute top-2.5 right-2.5 p-2 bg-slate-900/60 hover:bg-rose-600 text-white rounded-xl opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all" title="Kép törlése">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                    <div class="p-3.5 flex items-center justify-between gap-2 mt-auto">
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold text-slate-800 truncate" title="${photo.fileName}">${photo.fileName}</p>
-                            <p class="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
-                                <span>${formatTime(photo.createdAt)}</span>
-                                ${photo.width ? `<span>• ${photo.width}×${photo.height}</span>` : ''}
-                            </p>
-                        </div>
-                        <button class="download-btn shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-semibold text-xs rounded-xl transition-colors" title="Kép mentése">
-                            <i data-lucide="download" class="w-4 h-4"></i>
-                            <span>Mentés</span>
-                        </button>
-                    </div>
-                `;
+                const timeStr = photo.createdAt
+                    ? new Date(photo.createdAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+                    : '';
 
-                // Eseménykezelők a kártyán
-                card.querySelector('.preview-trigger').addEventListener('click', () => openLightbox(photo));
-                card.querySelector('.download-btn').addEventListener('click', (e) => {
+                card.innerHTML =
+                    '<div class="relative aspect-[4/3] bg-slate-950 overflow-hidden cursor-pointer preview-trigger">' +
+                        '<img src="' + photo.imageData + '" alt="' + escapeHtml(photo.fileName) + '" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">' +
+                        '<div class="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/30 transition-colors flex items-center justify-center">' +
+                            '<span class="opacity-0 group-hover:opacity-100 bg-slate-900/90 text-white border border-slate-700 px-3 py-1.5 rounded-full text-xs font-semibold shadow-lg transition-opacity">' +
+                                'Nagyítás' +
+                            '</span>' +
+                        '</div>' +
+                        '<button type="button" class="delete-btn absolute top-2.5 right-2.5 p-2 bg-slate-950/75 hover:bg-rose-600 text-slate-200 hover:text-white rounded-xl opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all" title="Kép törlése">' +
+                            '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>' +
+                            '</svg>' +
+                        '</button>' +
+                    '</div>' +
+                    '<div class="p-3.5 flex items-center justify-between gap-2 mt-auto">' +
+                        '<div class="min-w-0">' +
+                            '<p class="text-sm font-semibold text-slate-100 truncate" title="' + escapeHtml(photo.fileName) + '">' + escapeHtml(photo.fileName) + '</p>' +
+                            '<p class="text-xs text-slate-400 mt-0.5">' +
+                                timeStr + (photo.width ? ' • ' + photo.width + '×' + photo.height : '') +
+                            '</p>' +
+                        '</div>' +
+                        '<button type="button" class="download-btn shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/25 font-semibold text-xs rounded-xl transition-colors" title="Kép mentése">' +
+                            '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>' +
+                            '</svg>' +
+                            '<span>Mentés</span>' +
+                        '</button>' +
+                    '</div>';
+
+                card.querySelector('.preview-trigger').onclick = function () {
+                    appOpenLightbox(photo);
+                };
+                card.querySelector('.download-btn').onclick = function (e) {
                     e.stopPropagation();
                     downloadPhoto(photo);
-                });
-                card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                };
+                card.querySelector('.delete-btn').onclick = function (e) {
                     e.stopPropagation();
-                    requestDeletePhoto(photo.id);
-                });
+                    appRequestDeletePhoto(photo.id);
+                };
 
-                els.photosGrid.appendChild(card);
+                grid.appendChild(card);
             });
-
-            lucide.createIcons({ root: els.photosGrid });
         }
 
-        /**
-         * Szobakód vágólapra másolása (iframe-kompatibilis megoldással)
-         */
-        function copyRoomCode() {
+        function escapeHtml(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // 17. Kép letöltése
+        function downloadPhoto(photo) {
+            const link = document.createElement('a');
+            link.href = photo.imageData;
+            link.download = photo.fileName || ('snapbridge_' + (photo.id || Date.now()) + '.jpg');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Mentés elindítva: ' + photo.fileName, 'info');
+        }
+
+        window.appDownloadAllPhotos = async function () {
+            if (roomPhotos.length === 0) return;
+            showToast(roomPhotos.length + ' kép letöltése folyamatban...', 'info');
+            for (let i = 0; i < roomPhotos.length; i++) {
+                downloadPhoto(roomPhotos[i]);
+                await new Promise(function (r) { setTimeout(r, 350); });
+            }
+        };
+
+        // 18. Szobakód vágólapra másolása
+        window.appCopyRoomCode = function () {
             if (!currentRoomCode) return;
             const tempInput = document.createElement('textarea');
             tempInput.value = currentRoomCode;
@@ -1007,82 +1071,123 @@ service cloud.firestore {
             tempInput.select();
             try {
                 document.execCommand('copy');
-                showToast(`Szobakód másolva: ${currentRoomCode}`, 'success');
-            } catch (err) {
+                showToast('Szobakód másolva: ' + currentRoomCode, 'success');
+            } catch (e) {
                 showToast('Nem sikerült a másolás.', 'error');
             }
             document.body.removeChild(tempInput);
-        }
+        };
 
-        /**
-         * QR-kód generálása és megjelenítése modális ablakban
-         */
-        function openQrModal() {
+        // 19. QR-kód modális ablak
+        window.appOpenQrModal = function () {
             if (!currentRoomCode) return;
-            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoomCode}`;
-            
-            if (window.QRious) {
+            const shareUrl = window.location.origin + window.location.pathname + '?room=' + currentRoomCode;
+            const canvas = document.getElementById('qr-canvas');
+
+            if (typeof QRious !== 'undefined' && canvas) {
                 new QRious({
-                    element: els.qrCanvas,
+                    element: canvas,
                     value: shareUrl,
                     size: 210,
                     level: 'M',
                     foreground: '#0f172a',
                     background: '#ffffff'
                 });
+            } else if (canvas) {
+                // Tartalék szöveges megjelenítés, ha a QRious CDN nem érhető el
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = 'bold 28px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(currentRoomCode, canvas.width / 2, 100);
+                ctx.font = '12px sans-serif';
+                ctx.fillText('Írd be a kódot a telefonon', canvas.width / 2, 130);
             }
-            els.qrModal.classList.remove('hidden');
-        }
 
-        /**
-         * Lightbox előnézet megnyitása
-         */
-        function openLightbox(photo) {
+            document.getElementById('qr-modal').classList.remove('hidden');
+        };
+
+        window.appCloseQrModal = function () {
+            document.getElementById('qr-modal').classList.add('hidden');
+        };
+
+        // 20. Lightbox (Kép nagyítása)
+        window.appOpenLightbox = function (photo) {
             activeLightboxPhoto = photo;
-            els.lightboxImg.src = photo.imageData;
-            els.lightboxFilename.textContent = photo.fileName;
-            els.lightboxMeta.textContent = `Feltöltve: ${formatTime(photo.createdAt)} • ${photo.width || ''}×${photo.height || ''} px`;
-            els.lightboxModal.classList.remove('hidden');
-        }
+            document.getElementById('lightbox-img').src = photo.imageData;
+            document.getElementById('lightbox-filename').textContent = photo.fileName;
+            const timeStr = photo.createdAt
+                ? new Date(photo.createdAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+                : '';
+            document.getElementById('lightbox-meta').textContent =
+                'Feltöltve: ' + timeStr + (photo.width ? ' • ' + photo.width + '×' + photo.height + ' px' : '');
+            document.getElementById('lightbox-modal').classList.remove('hidden');
+        };
 
-        function closeLightbox() {
-            els.lightboxModal.classList.add('hidden');
-            els.lightboxImg.src = '';
+        window.appCloseLightbox = function () {
+            document.getElementById('lightbox-modal').classList.add('hidden');
+            document.getElementById('lightbox-img').src = '';
             activeLightboxPhoto = null;
-        }
+        };
 
-        /**
-         * Kép törlésének megerősítése és végrehajtása
-         */
-        function requestDeletePhoto(photoId) {
+        window.appDownloadActiveLightbox = function () {
+            if (activeLightboxPhoto) downloadPhoto(activeLightboxPhoto);
+        };
+
+        window.appDeleteActiveLightbox = function () {
+            if (activeLightboxPhoto) appRequestDeletePhoto(activeLightboxPhoto.id);
+        };
+
+        // 21. Kép törlése
+        window.appRequestDeletePhoto = function (photoId) {
             pendingDeletePhotoId = photoId;
-            els.confirmModal.classList.remove('hidden');
-        }
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        };
 
-        async function executeDeletePhoto() {
-            if (!pendingDeletePhotoId || !db || !currentRoomCode) return;
-            const idToDelete = pendingDeletePhotoId;
-            els.confirmModal.classList.add('hidden');
+        window.appCloseConfirmModal = function () {
+            document.getElementById('confirm-modal').classList.add('hidden');
             pendingDeletePhotoId = null;
+        };
+
+        window.appExecuteDeletePhoto = async function () {
+            if (!pendingDeletePhotoId || !currentRoomCode) return;
+            const idToDelete = pendingDeletePhotoId;
+            appCloseConfirmModal();
 
             if (activeLightboxPhoto && activeLightboxPhoto.id === idToDelete) {
-                closeLightbox();
+                appCloseLightbox();
             }
 
-            try {
-                const photoRef = doc(db, 'rooms', currentRoomCode, 'photos', idToDelete);
-                await deleteDoc(photoRef);
-                showToast('Fotó törölve a szobából.', 'info');
-            } catch (error) {
-                handleFirestoreError(error, 'Nem sikerült törölni a fotót.');
-            }
-        }
+            // Helyi listából azonnali eltávolítás
+            roomPhotos = roomPhotos.filter(function (p) { return p.id !== idToDelete; });
+            savePhotosToLocalBackup(currentRoomCode, roomPhotos);
+            renderGallery();
 
-        /**
-         * Firestore szabályok másolása a segédlet modálból
-         */
-        function copyFirestoreRules() {
-            const rulesText = els.firestoreRulesCode.textContent;
+            if (firebaseReady && db && !String(idToDelete).startsWith('local_')) {
+                try {
+                    await db.collection('rooms').doc(currentRoomCode).collection('photos').doc(idToDelete).delete();
+                    showToast('Fotó törölve a szobából.', 'info');
+                } catch (err) {
+                    handleFirestoreSyncError(err);
+                }
+            } else {
+                showToast('Fotó törölve.', 'info');
+            }
+        };
+
+        // 22. Firebase súgó modál és szabályok másolása
+        window.appOpenHelpModal = function () {
+            document.getElementById('help-modal').classList.remove('hidden');
+        };
+
+        window.appCloseHelpModal = function () {
+            document.getElementById('help-modal').classList.add('hidden');
+        };
+
+        window.appCopyFirestoreRules = function () {
+            const rulesText = document.getElementById('firestore-rules-code').textContent;
             const tempInput = document.createElement('textarea');
             tempInput.value = rulesText;
             document.body.appendChild(tempInput);
@@ -1090,112 +1195,65 @@ service cloud.firestore {
             try {
                 document.execCommand('copy');
                 showToast('Firestore szabályok vágólapra másolva!', 'success');
-            } catch (err) {
+            } catch (e) {
                 showToast('Nem sikerült a másolás.', 'error');
             }
             document.body.removeChild(tempInput);
+        };
+
+        // 23. Drag & Drop és Billentyűzet események bekötése
+        function setupGlobalInteractions() {
+            const dropZone = document.getElementById('drop-zone');
+            if (dropZone) {
+                ['dragenter', 'dragover'].forEach(function (evtName) {
+                    dropZone.addEventListener(evtName, function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropZone.classList.add('drag-active');
+                    });
+                });
+
+                ['dragleave', 'drop'].forEach(function (evtName) {
+                    dropZone.addEventListener(evtName, function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropZone.classList.remove('drag-active');
+                    });
+                });
+
+                dropZone.addEventListener('drop', function (e) {
+                    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        appHandleFilesUpload(e.dataTransfer.files);
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    appCloseLightbox();
+                    appCloseQrModal();
+                    appCloseConfirmModal();
+                    appCloseHelpModal();
+                }
+            });
         }
 
-        // --- ESEMÉNYKEZELŐK REGISZTRÁLÁSA ---
+        // 24. Indítás DOM betöltésekor
+        window.addEventListener('DOMContentLoaded', function () {
+            setupGlobalInteractions();
+            initFirebaseSafe();
 
-        els.createRoomBtn.addEventListener('click', createNewRoom);
-        
-        els.joinRoomBtn.addEventListener('click', () => {
-            joinRoom(els.roomCodeInput.value);
+            // URL ?room=KOD paraméter ellenőrzése (pl. QR-kód beolvasása után)
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomParam = urlParams.get('room');
+                if (roomParam) {
+                    const cleaned = roomParam.trim().toUpperCase();
+                    document.getElementById('room-code-input').value = cleaned;
+                    appJoinRoom(cleaned);
+                }
+            } catch (e) {}
         });
-
-        els.roomCodeInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                joinRoom(els.roomCodeInput.value);
-            }
-        });
-
-        els.leaveRoomBtn.addEventListener('click', leaveRoom);
-        els.logoBtn.addEventListener('click', () => {
-            if (currentRoomCode) leaveRoom();
-        });
-
-        // Másolás és QR gombok
-        els.copyCodeBtn.addEventListener('click', copyRoomCode);
-        els.mobileCopyBtn.addEventListener('click', copyRoomCode);
-        els.modalCopyBtn.addEventListener('click', copyRoomCode);
-
-        els.showQrBtn.addEventListener('click', openQrModal);
-        els.mobileQrBtn.addEventListener('click', openQrModal);
-        els.closeQrModal.addEventListener('click', () => els.qrModal.classList.add('hidden'));
-        els.doneQrBtn.addEventListener('click', () => els.qrModal.classList.add('hidden'));
-
-        // Fájlfeltöltés gombok
-        els.selectFilesBtn.addEventListener('click', () => els.fileInput.click());
-        els.takePhotoBtn.addEventListener('click', () => els.cameraInput.click());
-
-        els.fileInput.addEventListener('change', (e) => handleFilesUpload(e.target.files));
-        els.cameraInput.addEventListener('change', (e) => handleFilesUpload(e.target.files));
-
-        // Drag & Drop kezelés laptopon
-        ['dragenter', 'dragover'].forEach(evtName => {
-            els.dropZone.addEventListener(evtName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                els.dropZone.classList.add('drag-active');
-            });
-        });
-
-        ['dragleave', 'drop'].forEach(evtName => {
-            els.dropZone.addEventListener(evtName, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                els.dropZone.classList.remove('drag-active');
-            });
-        });
-
-        els.dropZone.addEventListener('drop', (e) => {
-            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
-                handleFilesUpload(e.dataTransfer.files);
-            }
-        });
-
-        // Összes letöltése
-        els.downloadAllBtn.addEventListener('click', downloadAllPhotos);
-
-        // Lightbox vezérlők
-        els.closeLightboxBtn.addEventListener('click', closeLightbox);
-        els.lightboxBackdrop.addEventListener('click', (e) => {
-            if (e.target === els.lightboxBackdrop) closeLightbox();
-        });
-        els.lightboxDownloadBtn.addEventListener('click', () => {
-            if (activeLightboxPhoto) downloadPhoto(activeLightboxPhoto);
-        });
-        els.lightboxDeleteBtn.addEventListener('click', () => {
-            if (activeLightboxPhoto) requestDeletePhoto(activeLightboxPhoto.id);
-        });
-
-        // Törlés megerősítő ablak
-        els.cancelConfirmBtn.addEventListener('click', () => {
-            els.confirmModal.classList.add('hidden');
-            pendingDeletePhotoId = null;
-        });
-        els.acceptConfirmBtn.addEventListener('click', executeDeletePhoto);
-
-        // Firebase súgó modál vezérlők
-        els.openHelpBtn.addEventListener('click', () => els.helpModal.classList.remove('hidden'));
-        els.bannerOpenHelpBtn.addEventListener('click', () => els.helpModal.classList.remove('hidden'));
-        els.closeHelpModal.addEventListener('click', () => els.helpModal.classList.add('hidden'));
-        els.doneHelpBtn.addEventListener('click', () => els.helpModal.classList.add('hidden'));
-        els.copyRulesBtn.addEventListener('click', copyFirestoreRules);
-
-        // Billentyűzet Escape kezelés modálokhoz
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeLightbox();
-                els.qrModal.classList.add('hidden');
-                els.confirmModal.classList.add('hidden');
-                els.helpModal.classList.add('hidden');
-            }
-        });
-
-        // Alkalmazás indítása
-        initFirebase();
     </script>
 </body>
 </html>
