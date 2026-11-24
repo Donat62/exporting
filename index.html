@@ -52,6 +52,20 @@
             background-color: rgba(99, 102, 241, 0.12) !important;
             transform: scale(1.01);
         }
+        .photo-card-selected {
+            border-color: #6366f1 !important;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45), 0 12px 24px -8px rgba(0, 0, 0, 0.6) !important;
+            background-color: rgba(30, 27, 75, 0.45) !important;
+        }
+        #marquee-box {
+            position: fixed;
+            border: 1.5px solid #818cf8;
+            background-color: rgba(99, 102, 241, 0.18);
+            border-radius: 6px;
+            pointer-events: none;
+            z-index: 45;
+            display: none;
+        }
         @keyframes slideUp {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -123,19 +137,26 @@
     </header>
 
     <!-- Firebase hiba / figyelmeztető sáv (ha a Firestore nincs engedélyezve vagy tiltja a szabály) -->
-    <div id="firebase-alert-banner" class="hidden bg-amber-500/10 border-b border-amber-500/30 px-4 py-3">
-        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm text-amber-200">
+    <div id="firebase-alert-banner" class="hidden bg-rose-950/90 border-b border-rose-500/40 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm text-rose-100">
             <div class="flex items-start sm:items-center gap-2.5">
-                <svg class="w-5 h-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="w-5 h-5 text-rose-400 shrink-0 mt-0.5 sm:mt-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
                 </svg>
                 <span id="firebase-alert-message">
-                    <strong>Firestore szinkronizációs figyelmeztetés:</strong> A szoba helyileg működik, de a felhő szinkronizációhoz engedélyezd a Firestore szabályokat.
+                    <strong>Firestore szinkronizációs hiba:</strong> A szoba helyileg működik, de a felhő szinkronizációhoz engedélyezd a Firestore szabályokat.
                 </span>
             </div>
-            <button type="button" onclick="appOpenHelpModal()" class="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg transition-colors shrink-0">
-                Szabályok megnyitása
-            </button>
+            <div class="flex items-center gap-2 shrink-0">
+                <button type="button" onclick="appOpenHelpModal()" class="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold rounded-lg transition-colors">
+                    Firebase súgó
+                </button>
+                <button type="button" onclick="document.getElementById('firebase-alert-banner').classList.add('hidden')" class="p-1.5 text-rose-300 hover:text-white hover:bg-rose-800/50 rounded-lg transition-colors" title="Bezárás">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -191,17 +212,18 @@
                         </div>
                         <h2 class="text-xl font-bold text-white mb-2">Csatlakozás kóddal</h2>
                         <p class="text-slate-400 text-sm mb-4 leading-relaxed">
-                            Írd be a másik eszközön látható 5 karakteres szobakódot a belépéshez.
+                            Írd be a másik eszközön látható szobakódot a belépéshez.
                         </p>
                         <div class="mb-4">
                             <label for="room-code-input" class="sr-only">Szobakód</label>
                             <input 
                                 type="text" 
                                 id="room-code-input" 
-                                maxlength="5" 
+                                maxlength="8" 
                                 placeholder="Pl. A7B9X" 
                                 autocomplete="off"
-                                onkeydown="if(event.key==='Enter') appJoinRoom()"
+                                oninput="this.value = this.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()"
+                                onkeydown="if(event.key==='Enter'){ event.preventDefault(); appJoinRoom(); }"
                                 class="w-full text-center font-mono text-2xl font-extrabold tracking-[0.3em] uppercase py-3.5 px-4 bg-slate-950 border-2 border-slate-700 rounded-2xl text-white focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600 placeholder:tracking-normal placeholder:font-sans placeholder:text-base placeholder:font-normal"
                             >
                         </div>
@@ -310,19 +332,35 @@
             </div>
 
             <!-- Galéria fejléc -->
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div class="flex items-center gap-2.5">
                     <h3 class="text-lg sm:text-xl font-bold text-white">Szobában lévő fotók</h3>
                     <span id="photo-count-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">0</span>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <button type="button" id="download-all-btn" onclick="appDownloadAllPhotos()" class="hidden items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-600/20 transition-colors cursor-pointer">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" id="select-all-btn" onclick="appToggleSelectAll()" class="hidden items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs sm:text-sm font-semibold rounded-xl transition-colors cursor-pointer">
+                        <svg class="w-4 h-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>
+                        </svg>
+                        <span id="select-all-label">Összes kijelölése</span>
+                    </button>
+                    <button type="button" id="download-all-btn" onclick="appDownloadAllPhotos()" class="hidden items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-emerald-600/20 transition-colors cursor-pointer">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
                         </svg>
                         <span>Összes letöltése</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- Kihúzási és kijelölési tipp sáv -->
+            <div id="gallery-tip-bar" class="hidden mb-5 px-4 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-200 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+                    </svg>
+                    <span><strong>Tipp:</strong> Fogd meg bármelyik képet és húzd ki közvetlenül az Asztalra / mappába, vagy húzz kijelölő keretet az egérrel több fotó kijelöléséhez!</span>
                 </div>
             </div>
 
@@ -339,11 +377,43 @@
                 </p>
             </div>
 
-            <!-- Fotók rács -->
-            <div id="photos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+            <!-- Fotók rács (marquee kijelölési területtel) -->
+            <div id="gallery-marquee-area" class="relative min-h-[260px] rounded-3xl select-none">
+                <div id="photos-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+            </div>
         </section>
 
     </main>
+
+    <!-- Téglalapos kijelölő keret (Marquee) -->
+    <div id="marquee-box"></div>
+
+    <!-- Lebegő többes kijelölés akció-sáv -->
+    <div id="selection-action-bar" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-xl bg-slate-900/95 backdrop-blur-xl border border-indigo-500/40 rounded-2xl px-4 py-3 shadow-2xl shadow-indigo-950/80 flex flex-wrap items-center justify-between gap-3 toast-enter">
+        <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center" id="selected-count-badge">0</span>
+            <span class="text-sm font-semibold text-white">kijelölt elem</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="appDownloadSelectedPhotos()" class="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/25 transition-colors cursor-pointer">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+                </svg>
+                <span id="download-selected-label">Kijelöltek letöltése</span>
+            </button>
+            <button type="button" onclick="appDeleteSelectedPhotos()" class="flex items-center gap-1.5 px-3 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 text-xs sm:text-sm font-semibold rounded-xl transition-colors cursor-pointer" title="Kijelöltek törlése">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                </svg>
+                <span class="hidden sm:inline">Törlés</span>
+            </button>
+            <button type="button" onclick="appClearSelection()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors cursor-pointer" title="Kijelölés megszüntetése">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
 
     <!-- Lábléc -->
     <footer class="border-t border-slate-800/80 bg-slate-900/50 py-5 mt-auto">
@@ -512,6 +582,7 @@ service cloud.firestore {
         let currentRoomCode = null;
         let unsubscribePhotos = null;
         let roomPhotos = [];
+        let selectedPhotoIds = new Set();
         let activeLightboxPhoto = null;
         let pendingDeletePhotoId = null;
 
@@ -667,45 +738,41 @@ service cloud.firestore {
             const code = String(raw).trim().toUpperCase();
 
             if (code.length < 4) {
-                showToast('Kérlek írj be egy 5 karakteres szobakódot!', 'error');
+        // 9. Csatlakozás meglévő szobához kóddal (azonnali nyitás + háttér Firestore szinkron)
+        window.appJoinRoom = function (explicitCode) {
+            const input = document.getElementById('room-code-input');
+            const raw = explicitCode !== undefined ? explicitCode : (input ? input.value : '');
+            const code = String(raw || '').replace(/[^a-zA-Z0-9]/g, '').trim().toUpperCase();
+
+            if (code.length < 3) {
+                showToast('Kérlek írj be egy érvényes szobakódot (legalább 3 karakter)!', 'error');
                 if (input) input.focus();
                 return;
             }
 
-            // Ha van helyi mentés vagy nincs Firebase, azonnal belépünk; ha van Firebase, ellenőrizzük
-            if (!firebaseReady || !db) {
-                enterRoomUI(code);
-                showToast('Belépve a(z) ' + code + ' szobába!', 'success');
-                return;
+            // Azonnal megnyitjuk a szobát a felületen, hogy semmi ne akadályozza a belépést
+            enterRoomUI(code);
+            showToast('Belépve a(z) ' + code + ' szobába!', 'success');
+
+            // Háttérben regisztráljuk/ellenőrizzük a szobát a Firestore-ban
+            if (firebaseReady && db) {
+                db.collection('rooms').doc(code).get()
+                    .then(function (docSnap) {
+                        if (!docSnap.exists) {
+                            return db.collection('rooms').doc(code).set({
+                                code: code,
+                                createdAt: Date.now(),
+                                createdBy: currentUserId
+                            });
+                        }
+                    })
+                    .then(function () {
+                        setConnectionStatus('connected', 'Firebase csatlakozva');
+                    })
+                    .catch(function (err) {
+                        handleFirestoreSyncError(err);
+                    });
             }
-
-            const joinBtn = document.getElementById('join-room-btn');
-            if (joinBtn) joinBtn.disabled = true;
-
-            db.collection('rooms').doc(code).get()
-                .then(function (docSnap) {
-                    if (!docSnap.exists) {
-                        // Ha még nem létezett a dokumentum, de a felhasználó beírta, létrehozzuk neki, hogy ne akadjon el
-                        return db.collection('rooms').doc(code).set({
-                            code: code,
-                            createdAt: Date.now(),
-                            createdBy: currentUserId
-                        });
-                    }
-                })
-                .then(function () {
-                    setConnectionStatus('connected', 'Firebase csatlakozva');
-                    enterRoomUI(code);
-                    showToast('Csatlakoztál a(z) ' + code + ' szobához!', 'success');
-                })
-                .catch(function (err) {
-                    handleFirestoreSyncError(err);
-                    enterRoomUI(code);
-                    showToast('Belépve a(z) ' + code + ' szobába (helyi mód)', 'info');
-                })
-                .finally(function () {
-                    if (joinBtn) joinBtn.disabled = false;
-                });
         };
 
         // 10. Firestore hibák közérthető kezelése
@@ -718,7 +785,7 @@ service cloud.firestore {
                 setConnectionStatus(
                     'warning',
                     'Firestore szabály tiltja',
-                    '<strong>Jogosultsági hiba (permission-denied):</strong> A Firebase Firestore szabályai jelenleg tiltják az írást/olvasást. Kattints a <em>Szabályok megnyitása</em> gombra!'
+                    '<strong>Jogosultsági hiba (permission-denied):</strong> A Firebase Firestore szabályai jelenleg tiltják az írást/olvasást. Kattints a <em>Firebase súgó</em> gombra!'
                 );
             } else if (code === 'not-found' || msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('does not exist')) {
                 setConnectionStatus(
@@ -738,6 +805,8 @@ service cloud.firestore {
         // 11. Átváltás a Szoba nézetre
         function enterRoomUI(code) {
             currentRoomCode = code;
+            selectedPhotoIds.clear();
+            updateSelectionUI();
 
             // URL frissítése ?room=KOD paraméterrel
             try {
@@ -774,6 +843,8 @@ service cloud.firestore {
             }
             currentRoomCode = null;
             roomPhotos = [];
+            selectedPhotoIds.clear();
+            updateSelectionUI();
             document.getElementById('photos-grid').innerHTML = '';
             document.getElementById('room-code-input').value = '';
 
@@ -789,91 +860,255 @@ service cloud.firestore {
             headerControls.classList.remove('flex');
             document.getElementById('lobby-view').classList.remove('hidden');
         };
+        // 16. Galéria kirajzolása (kihúzható kártyákkal és kijelöléssel)
+        function renderGallery() {
+            const badge = document.getElementById('photo-count-badge');
+            const emptyState = document.getElementById('empty-gallery-state');
+            const grid = document.getElementById('photos-grid');
+            const downloadAllBtn = document.getElementById('download-all-btn');
+            const selectAllBtn = document.getElementById('select-all-btn');
+            const tipBar = document.getElementById('gallery-tip-bar');
 
-        // 13. Valós idejű Firestore szinkronizáció (`rooms/{roomCode}/photos`)
-        function subscribeToRoomPhotos(roomCode) {
-            if (!firebaseReady || !db) return;
-            if (unsubscribePhotos) {
-                unsubscribePhotos();
-                unsubscribePhotos = null;
+            badge.textContent = roomPhotos.length;
+
+            // Törölt elemek kiszűrése a kijelölésből
+            const validIds = new Set(roomPhotos.map(function (p) { return p.id; }));
+            Array.from(selectedPhotoIds).forEach(function (id) {
+                if (!validIds.has(id)) selectedPhotoIds.delete(id);
+            });
+
+            if (roomPhotos.length === 0) {
+                emptyState.classList.remove('hidden');
+                grid.innerHTML = '';
+                downloadAllBtn.classList.add('hidden');
+                downloadAllBtn.classList.remove('flex');
+                selectAllBtn.classList.add('hidden');
+                selectAllBtn.classList.remove('flex');
+                tipBar.classList.add('hidden');
+                updateSelectionUI();
+                return;
             }
 
-            unsubscribePhotos = db.collection('rooms').doc(roomCode).collection('photos')
-                .onSnapshot(function (snapshot) {
-                    setConnectionStatus('connected', 'Firebase csatlakozva');
-                    const fetched = [];
-                    snapshot.forEach(function (docSnap) {
-                        const data = docSnap.data();
-                        fetched.push(Object.assign({ id: docSnap.id }, data));
-                    });
+            emptyState.classList.add('hidden');
+            tipBar.classList.remove('hidden');
 
-                    // Legújabb fotók elöl
-                    fetched.sort(function (a, b) {
-                        return (b.createdAt || 0) - (a.createdAt || 0);
-                    });
+            selectAllBtn.classList.remove('hidden');
+            selectAllBtn.classList.add('flex');
 
-                    roomPhotos = fetched;
-                    savePhotosToLocalBackup(roomCode, roomPhotos);
-                    renderGallery();
-                }, function (err) {
-                    handleFirestoreSyncError(err);
+            if (roomPhotos.length > 1) {
+                downloadAllBtn.classList.remove('hidden');
+                downloadAllBtn.classList.add('flex');
+            } else {
+                downloadAllBtn.classList.add('hidden');
+                downloadAllBtn.classList.remove('flex');
+            }
+
+            grid.innerHTML = '';
+
+            roomPhotos.forEach(function (photo) {
+                const isSelected = selectedPhotoIds.has(photo.id);
+                const card = document.createElement('div');
+                card.setAttribute('data-photo-id', photo.id);
+                card.setAttribute('draggable', 'true');
+                card.className = 'photo-card group bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-lg hover:border-indigo-500/40 transition-all flex flex-col cursor-grab active:cursor-grabbing ' + (isSelected ? 'photo-card-selected' : '');
+
+                const timeStr = photo.createdAt
+                    ? new Date(photo.createdAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
+                    : '';
+
+                card.innerHTML =
+                    '<div class="relative aspect-[4/3] bg-slate-950 overflow-hidden preview-trigger">' +
+                        '<img src="' + photo.imageData + '" alt="' + escapeHtml(photo.fileName) + '" draggable="true" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">' +
+                        '<div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/30 opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none"></div>' +
+                        '<!-- Kijelölő jelölőnégyzet -->' +
+                        '<label class="select-checkbox-wrap absolute top-2.5 left-2.5 z-10 flex items-center justify-center w-7 h-7 rounded-lg bg-slate-950/80 border ' + (isSelected ? 'border-indigo-400 bg-indigo-600' : 'border-slate-600 hover:border-indigo-400') + ' cursor-pointer shadow-md transition-colors" title="Kijelölés">' +
+                            '<input type="checkbox" class="photo-checkbox sr-only" ' + (isSelected ? 'checked' : '') + '>' +
+                            (isSelected
+                                ? '<svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+                                : '<span class="w-3.5 h-3.5 rounded-sm border border-slate-400/70"></span>') +
+                        '</label>' +
+                        '<!-- Kihúzható jelvény + Törlés -->' +
+                        '<div class="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">' +
+                            '<span class="px-2 py-1 rounded-lg bg-slate-950/75 text-slate-300 text-[10px] font-semibold border border-slate-700/70 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" title="Húzd ki a mappába">' +
+                                '<svg class="w-3 h-3 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>' +
+                                'Húzható' +
+                            '</span>' +
+                            '<button type="button" class="delete-btn p-1.5 bg-slate-950/80 hover:bg-rose-600 text-slate-200 hover:text-white rounded-lg opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all" title="Kép törlése">' +
+                                '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                    '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>' +
+                                '</svg>' +
+                            '</button>' +
+                        '</div>' +
+                        '<div class="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">' +
+                            '<span class="opacity-0 group-hover:opacity-100 bg-slate-900/90 text-white border border-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-semibold shadow transition-opacity">' +
+                                'Kattints a nagyításhoz' +
+                            '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="p-3.5 flex items-center justify-between gap-2 mt-auto">' +
+                        '<div class="min-w-0">' +
+                            '<p class="text-sm font-semibold text-slate-100 truncate" title="' + escapeHtml(photo.fileName) + '">' + escapeHtml(photo.fileName) + '</p>' +
+                            '<p class="text-xs text-slate-400 mt-0.5">' +
+                                timeStr + (photo.width ? ' • ' + photo.width + '×' + photo.height : '') +
+                            '</p>' +
+                        '</div>' +
+                        '<button type="button" class="download-btn shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-500/15 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/25 font-semibold text-xs rounded-xl transition-colors cursor-pointer" title="Kép mentése">' +
+                            '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>' +
+                            '</svg>' +
+                            '<span>Mentés</span>' +
+                        '</button>' +
+                    '</div>';
+
+                // Natív kihúzás (Drag-out to Desktop / Folder) beállítása
+                card.addEventListener('dragstart', function (e) {
+                    handlePhotoDragStart(e, photo, card);
                 });
+
+                // Kijelölés jelölőnégyzettel
+                const checkboxWrap = card.querySelector('.select-checkbox-wrap');
+                checkboxWrap.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    togglePhotoSelection(photo.id);
+                });
+
+                // Előnézet vagy Ctrl/Cmd+kattintással kijelölés
+                card.querySelector('.preview-trigger').addEventListener('click', function (e) {
+                    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                        e.preventDefault();
+                        togglePhotoSelection(photo.id);
+                    } else {
+                        appOpenLightbox(photo);
+                    }
+                });
+
+                card.querySelector('.download-btn').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    downloadPhoto(photo);
+                });
+
+                card.querySelector('.delete-btn').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    appRequestDeletePhoto(photo.id);
+                });
+
+                grid.appendChild(card);
+            });
+
+            updateSelectionUI();
         }
 
-        // 14. Kép optimalizálása és JPEG tömörítése (max. 1200px, < 900KB)
-        function compressImageToDataURL(file, maxDimension, initialQuality) {
-            return new Promise(function (resolve, reject) {
-                const reader = new FileReader();
-                reader.onerror = function () { reject(new Error('Fájl olvasási hiba')); };
-                reader.onload = function (event) {
-                    const img = new Image();
-                    img.onerror = function () { reject(new Error('Érvénytelen képformátum')); };
-                    img.onload = function () {
-                        let width = img.width;
-                        let height = img.height;
+        // 16/B. Kihúzás (Drag-out) eseménykezelő Asztalra / Intézőbe
+        function handlePhotoDragStart(e, photo, cardEl) {
+            if (!e.dataTransfer) return;
 
-                        if (width > maxDimension || height > maxDimension) {
-                            if (width > height) {
-                                height = Math.round((height * maxDimension) / width);
-                                width = maxDimension;
-                            } else {
-                                width = Math.round((width * maxDimension) / height);
-                                height = maxDimension;
-                            }
+            const safeName = (photo.fileName || ('snapbridge_' + photo.id + '.jpg')).replace(/[:/\\?%*|"<>]/g, '_');
+            const downloadUrlMeta = 'image/jpeg:' + safeName + ':' + photo.imageData;
+
+            try {
+                e.dataTransfer.setData('DownloadURL', downloadUrlMeta);
+                e.dataTransfer.setData('text/uri-list', photo.imageData);
+                e.dataTransfer.setData('text/plain', photo.imageData);
+                e.dataTransfer.effectAllowed = 'copyMove';
+            } catch (err) {
+                console.warn('Drag data beállítási figyelmeztetés:', err);
+            }
+
+            // Vizuális húzási előnézet (setDragImage)
+            const imgEl = cardEl.querySelector('img');
+            if (imgEl && e.dataTransfer.setDragImage) {
+                e.dataTransfer.setDragImage(imgEl, 40, 40);
+            }
+
+            // Ha több kijelölt elem van és az egyiket húzza ki, felajánljuk/elindítjuk a többes mentést is ha elhagyja az ablakot
+            if (selectedPhotoIds.size > 1 && selectedPhotoIds.has(photo.id)) {
+                showToast(selectedPhotoIds.size + ' kijelölt kép húzása (vagy használd a Kijelöltek letöltése gombot)', 'info');
+            }
+        }
+
+        // 16/C. Többes kijelölés segédfüggvények
+        function togglePhotoSelection(photoId) {
+            if (selectedPhotoIds.has(photoId)) {
+                selectedPhotoIds.delete(photoId);
+            } else {
+                selectedPhotoIds.add(photoId);
+            }
+            renderGallery();
+        }
+
+        window.appToggleSelectAll = function () {
+            if (roomPhotos.length === 0) return;
+            if (selectedPhotoIds.size === roomPhotos.length) {
+                selectedPhotoIds.clear();
+            } else {
+                roomPhotos.forEach(function (p) { selectedPhotoIds.add(p.id); });
+            }
+            renderGallery();
+        };
+
+        window.appClearSelection = function () {
+            selectedPhotoIds.clear();
+            renderGallery();
+        };
+
+        function updateSelectionUI() {
+            const bar = document.getElementById('selection-action-bar');
+            const countBadge = document.getElementById('selected-count-badge');
+            const dlLabel = document.getElementById('download-selected-label');
+            const selectAllLabel = document.getElementById('select-all-label');
+
+            if (selectAllLabel) {
+                selectAllLabel.textContent = (roomPhotos.length > 0 && selectedPhotoIds.size === roomPhotos.length)
+                    ? 'Kijelölés törlése'
+                    : 'Összes kijelölése';
+            }
+
+            if (!bar) return;
+
+            if (selectedPhotoIds.size > 0) {
+                countBadge.textContent = selectedPhotoIds.size;
+                dlLabel.textContent = 'Kijelöltek letöltése (' + selectedPhotoIds.size + ' db)';
+                bar.classList.remove('hidden');
+            } else {
+                bar.classList.add('hidden');
+            }
+        }
+
+        window.appDownloadSelectedPhotos = async function () {
+            const toDownload = roomPhotos.filter(function (p) { return selectedPhotoIds.has(p.id); });
+            if (toDownload.length === 0) return;
+
+            showToast(toDownload.length + ' kijelölt fotó letöltése...', 'success');
+            for (let i = 0; i < toDownload.length; i++) {
+                downloadPhoto(toDownload[i]);
+                await new Promise(function (r) { setTimeout(r, 320); });
+            }
+        };
+
+        window.appDeleteSelectedPhotos = async function () {
+            const idsToDelete = Array.from(selectedPhotoIds);
+            if (idsToDelete.length === 0 || !currentRoomCode) return;
+
+            roomPhotos = roomPhotos.filter(function (p) { return !selectedPhotoIds.has(p.id); });
+            selectedPhotoIds.clear();
+            savePhotosToLocalBackup(currentRoomCode, roomPhotos);
+            renderGallery();
+
+            if (firebaseReady && db) {
+                for (let i = 0; i < idsToDelete.length; i++) {
+                    const id = idsToDelete[i];
+                    if (!String(id).startsWith('local_')) {
+                        try {
+                            await db.collection('rooms').doc(currentRoomCode).collection('photos').doc(id).delete();
+                        } catch (err) {
+                            handleFirestoreSyncError(err);
                         }
-
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-
-                        ctx.fillStyle = '#FFFFFF';
-                        ctx.fillRect(0, 0, width, height);
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        let quality = initialQuality;
-                        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-
-                        while (dataUrl.length > 880000 && quality > 0.3) {
-                            quality -= 0.12;
-                            dataUrl = canvas.toDataURL('image/jpeg', quality);
-                        }
-
-                        if (dataUrl.length > 920000) {
-                            canvas.width = Math.round(width * 0.7);
-                            canvas.height = Math.round(height * 0.7);
-                            ctx.fillStyle = '#FFFFFF';
-                            ctx.fillRect(0, 0, canvas.width, canvas.height);
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                        }
-
-                        resolve({
-                            dataUrl: dataUrl,
-                            width: canvas.width,
-                            height: canvas.height
-                        });
-                    };
+                    }
+                }
+            }
+            showToast(idsToDelete.length + ' kijelölt fotó törölve.', 'info');
+        };
                     img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
@@ -1112,96 +1347,7 @@ service cloud.firestore {
         window.appCloseQrModal = function () {
             document.getElementById('qr-modal').classList.add('hidden');
         };
-
-        // 20. Lightbox (Kép nagyítása)
-        window.appOpenLightbox = function (photo) {
-            activeLightboxPhoto = photo;
-            document.getElementById('lightbox-img').src = photo.imageData;
-            document.getElementById('lightbox-filename').textContent = photo.fileName;
-            const timeStr = photo.createdAt
-                ? new Date(photo.createdAt).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })
-                : '';
-            document.getElementById('lightbox-meta').textContent =
-                'Feltöltve: ' + timeStr + (photo.width ? ' • ' + photo.width + '×' + photo.height + ' px' : '');
-            document.getElementById('lightbox-modal').classList.remove('hidden');
-        };
-
-        window.appCloseLightbox = function () {
-            document.getElementById('lightbox-modal').classList.add('hidden');
-            document.getElementById('lightbox-img').src = '';
-            activeLightboxPhoto = null;
-        };
-
-        window.appDownloadActiveLightbox = function () {
-            if (activeLightboxPhoto) downloadPhoto(activeLightboxPhoto);
-        };
-
-        window.appDeleteActiveLightbox = function () {
-            if (activeLightboxPhoto) appRequestDeletePhoto(activeLightboxPhoto.id);
-        };
-
-        // 21. Kép törlése
-        window.appRequestDeletePhoto = function (photoId) {
-            pendingDeletePhotoId = photoId;
-            document.getElementById('confirm-modal').classList.remove('hidden');
-        };
-
-        window.appCloseConfirmModal = function () {
-            document.getElementById('confirm-modal').classList.add('hidden');
-            pendingDeletePhotoId = null;
-        };
-
-        window.appExecuteDeletePhoto = async function () {
-            if (!pendingDeletePhotoId || !currentRoomCode) return;
-            const idToDelete = pendingDeletePhotoId;
-            appCloseConfirmModal();
-
-            if (activeLightboxPhoto && activeLightboxPhoto.id === idToDelete) {
-                appCloseLightbox();
-            }
-
-            // Helyi listából azonnali eltávolítás
-            roomPhotos = roomPhotos.filter(function (p) { return p.id !== idToDelete; });
-            savePhotosToLocalBackup(currentRoomCode, roomPhotos);
-            renderGallery();
-
-            if (firebaseReady && db && !String(idToDelete).startsWith('local_')) {
-                try {
-                    await db.collection('rooms').doc(currentRoomCode).collection('photos').doc(idToDelete).delete();
-                    showToast('Fotó törölve a szobából.', 'info');
-                } catch (err) {
-                    handleFirestoreSyncError(err);
-                }
-            } else {
-                showToast('Fotó törölve.', 'info');
-            }
-        };
-
-        // 22. Firebase súgó modál és szabályok másolása
-        window.appOpenHelpModal = function () {
-            document.getElementById('help-modal').classList.remove('hidden');
-        };
-
-        window.appCloseHelpModal = function () {
-            document.getElementById('help-modal').classList.add('hidden');
-        };
-
-        window.appCopyFirestoreRules = function () {
-            const rulesText = document.getElementById('firestore-rules-code').textContent;
-            const tempInput = document.createElement('textarea');
-            tempInput.value = rulesText;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            try {
-                document.execCommand('copy');
-                showToast('Firestore szabályok vágólapra másolva!', 'success');
-            } catch (e) {
-                showToast('Nem sikerült a másolás.', 'error');
-            }
-            document.body.removeChild(tempInput);
-        };
-
-        // 23. Drag & Drop és Billentyűzet események bekötése
+        // 23. Drag & Drop, Téglalapos (Marquee) kijelölés és Billentyűzet események
         function setupGlobalInteractions() {
             const dropZone = document.getElementById('drop-zone');
             if (dropZone) {
@@ -1228,12 +1374,101 @@ service cloud.firestore {
                 });
             }
 
+            // Téglalapos (rubber-band / marquee) egér-kijelölés a galériában
+            const marqueeArea = document.getElementById('gallery-marquee-area');
+            const marqueeBox = document.getElementById('marquee-box');
+            let isMarqueeSelecting = false;
+            let startX = 0;
+            let startY = 0;
+            let initialSelectionSnapshot = new Set();
+
+            if (marqueeArea && marqueeBox) {
+                marqueeArea.addEventListener('mousedown', function (e) {
+                    // Csak bal egérgomb, és ne induljon el kártyáról (azt kihúzásra használja a user)
+                    if (e.button !== 0) return;
+                    if (e.target.closest('.photo-card') || e.target.closest('button') || e.target.closest('label')) {
+                        return;
+                    }
+                    if (roomPhotos.length === 0) return;
+
+                    isMarqueeSelecting = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    initialSelectionSnapshot = (e.ctrlKey || e.metaKey || e.shiftKey)
+                        ? new Set(selectedPhotoIds)
+                        : new Set();
+
+                    marqueeBox.style.left = startX + 'px';
+                    marqueeBox.style.top = startY + 'px';
+                    marqueeBox.style.width = '0px';
+                    marqueeBox.style.height = '0px';
+                    marqueeBox.style.display = 'block';
+                });
+
+                window.addEventListener('mousemove', function (e) {
+                    if (!isMarqueeSelecting) return;
+
+                    const currentX = e.clientX;
+                    const currentY = e.clientY;
+
+                    const left = Math.min(startX, currentX);
+                    const top = Math.min(startY, currentY);
+                    const width = Math.abs(currentX - startX);
+                    const height = Math.abs(currentY - startY);
+
+                    marqueeBox.style.left = left + 'px';
+                    marqueeBox.style.top = top + 'px';
+                    marqueeBox.style.width = width + 'px';
+                    marqueeBox.style.height = height + 'px';
+
+                    const selRect = { left: left, top: top, right: left + width, bottom: top + height };
+                    const nextSelected = new Set(initialSelectionSnapshot);
+
+                    const cards = document.querySelectorAll('#photos-grid .photo-card');
+                    cards.forEach(function (card) {
+                        const rect = card.getBoundingClientRect();
+                        const overlaps = !(
+                            rect.right < selRect.left ||
+                            rect.left > selRect.right ||
+                            rect.bottom < selRect.top ||
+                            rect.top > selRect.bottom
+                        );
+                        const pid = card.getAttribute('data-photo-id');
+                        if (overlaps && pid) {
+                            nextSelected.add(pid);
+                        }
+                    });
+
+                    selectedPhotoIds = nextSelected;
+                    // Gyors vizuális frissítés a DOM újraépítése nélkül húzás közben
+                    cards.forEach(function (card) {
+                        const pid = card.getAttribute('data-photo-id');
+                        if (selectedPhotoIds.has(pid)) {
+                            card.classList.add('photo-card-selected');
+                        } else {
+                            card.classList.remove('photo-card-selected');
+                        }
+                    });
+                    updateSelectionUI();
+                });
+
+                window.addEventListener('mouseup', function () {
+                    if (!isMarqueeSelecting) return;
+                    isMarqueeSelecting = false;
+                    marqueeBox.style.display = 'none';
+                    renderGallery();
+                });
+            }
+
             document.addEventListener('keydown', function (e) {
                 if (e.key === 'Escape') {
                     appCloseLightbox();
                     appCloseQrModal();
                     appCloseConfirmModal();
                     appCloseHelpModal();
+                    if (selectedPhotoIds.size > 0) {
+                        appClearSelection();
+                    }
                 }
             });
         }
