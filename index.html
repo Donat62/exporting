@@ -285,7 +285,9 @@ function norm(id, d) {
 let ready = false;
 try {
   firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore(); ready = true;
+  db = firebase.firestore();
+  db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+  ready = true;
   try { storage = firebase.storage(); } catch (e) { storage = null; }
   setStatus('ok', 'Firebase csatlakozva');
 } catch (e) {
